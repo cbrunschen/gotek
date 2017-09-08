@@ -177,26 +177,39 @@ module faceHoles(extra=0) {
 module threeLeds() {
 }
 
+// width of PCB = 38mm
 oled128x32Width = 38;
+// Depth of PCB plus display etc = 2.8mm
 oled128x32Depth = 2.45;
+// Height of PCB = 12mm
+oled128x32Height = 12;
+
+oled128x32VisibleWidth = 22.384;
+oled128x32VisibleXOffset = 5+1.1;
+oled128x32VisibleHeight = 7.584;
+oled128x32VisibleYOffset = oled128x32Height - 0.25 - 2.1 - oled128x32VisibleHeight;
+
 
 module oled128x32(extra=0.1) {
     debug("oled128x32()");
     overlap = 0.1;
     union() {
         // PCB + display module + pins + folded flat cable:
-        // - start 3mm back to allow space for insertion
-        // Depth of PCB plus display etc = 2.45mm
-        translate([-extra, -extra, -3])
-            cube([oled128x32Width+2*extra, 12+2*extra, 3+oled128x32Depth]);
+        // - start 5mm back to allow space for insertion
+        translate([-extra, -extra, -5])
+            cube([oled128x32Width+2*extra, oled128x32Height+2*extra, 5+oled128x32Depth]);
 
         // display active area including border!
         // push it out 4mm to ensure it penetrates through the front
         // of the faceplate
         // starts at 5mm (pcb inset) + 1.1mm (from the display edge),
-        translate([5+1.1, 12-0.25-2.1-7.584, oled128x32Depth-overlap])
-            cube([22.384, 7.584, 4+overlap]);
+        translate([oled128x32VisibleXOffset, oled128x32VisibleYOffset, oled128x32Depth-overlap])
+            cube([oled128x32VisibleWidth, oled128x32VisibleHeight, 4+overlap]);
     }
+}
+
+module oled128x32Holder(extra=0.1) {
+    translate([-1, -1, -4]) cube([2 + oled128x32Width, 2 + oled128x32Height, 4]);
 }
 
 module placeholder(extra=0) {
@@ -233,7 +246,12 @@ module faceplate(d=2, hh=2, hTot=25.4, displayD=0.5, left=0, right=0) {
     hTot = max(hTot, hMin);
     
     difference() {
-        translate([left, h, -hh]) cube([right - left, d, hTot]);
+        union() {
+            translate([left, h, -hh]) cube([right - left, d, hTot]);
+            translate([w2 + oled128x32Width + 1, h + d - oled128x32Depth - displayD, -0.5])
+                rotate([-90, 180, 0])
+                oled128x32Holder();
+        }
         union() {
             faceHoles(extra=0);
             translate([w2 + oled128x32Width + 1, h + d - oled128x32Depth - displayD, -0.5])
