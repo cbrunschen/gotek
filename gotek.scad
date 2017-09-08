@@ -7,8 +7,16 @@ d = 1;
 
 wTot = 101.6;
 
-module pcb() {
+DEBUG=true;
 
+module debug(s) {
+    if (DEBUG) {
+        echo(str(s));
+    }
+}
+
+module pcb() {
+    debug("pcb()");
     cube([w1, h1, d]);
     translate([0, h1, 0]) cube([w2, h2, d]);
 }
@@ -23,6 +31,7 @@ y2 = y1 + 21.25;
 y3 = y2 + 50;
 
 module holes(r=rHole, h=d) {
+    debug("holes()");
     $fn=24;
     translate([0, 0, h/2]) scale([1, 1, 2]) {
         translate([x1, y1, 0]) cylinder(r=r, h=h, center=true);
@@ -37,6 +46,7 @@ hConn = 7;
 yConn = -hConn;
 
 module connectors() {
+    debug("connectors()");
     // power connector
     translate([1, yConn, 0]) cube([10, hConn+3, 5]);
     
@@ -53,6 +63,7 @@ module connectors() {
 }
 
 module support(rO=3, rI=rHole-0.3, h=2, d=1) {
+    debug("support()");
     if (d >=0) {
         translate([0, 0, -h/2])
             cylinder(r=rO, h=h, center=true);
@@ -77,6 +88,7 @@ xButton2 = xButton1 + xSpacingButton;
 xButton0 = xButton1 - xSpacingButton;
 
 module horizontalCylinder(x, y, z, r, d) {
+    debug("horizontalCylinder()");
     translate([x, y, z]) rotate([-90, 0, 0]) {
         $fn = 24;
         translate([0, 0, d/2 - 0.1]) cylinder(r=r, h=d + 0.1, center=true);
@@ -84,11 +96,13 @@ module horizontalCylinder(x, y, z, r, d) {
 }
 
 module button(xButton=0, extra=0) {
+    debug("button()");
     horizontalCylinder(xButton, extra, zButton, rButton+extra, 5-extra);
     translate([xButton-3, -6, d]) cube([6, 6+extra, 6]);
 }
 
 module buttons(extra=0) {
+    debug("buttons()");
     translate([0, h, 0]) {
         button(xButton0, extra);
         button(xButton1, extra);
@@ -101,24 +115,27 @@ rLed = 1.5;
 xLed = xButton1;
 
 module led(extra=0) {
+    debug("led()");
     translate([0, h, 0]) {
         horizontalCylinder(xLed, 0, zLed, rLed+extra, 3);
     }
 }
 
 module leds(extra=0) {
+    debug("leds()");
     led();
 }
 
 xUSB = 22.6;
-wUSB = 15.5;
-hUSB = 7.3;
+wUSB = 15;
+hUSB = 7.5;
 zUSB = 1.5;
 rUSB = 1.75;
 dUSB = 10;
 
 module roundedRect(size, radius)
 {
+    debug("roundedRect()");
 	x = size[0];
 	y = size[1];
 	z = size[2];
@@ -144,12 +161,14 @@ module roundedRect(size, radius)
 }
 
 module usb(extra=0) {
+    debug("usb()");
     translate([xUSB + wUSB/2, h-dUSB/2, zUSB+hUSB/2]) rotate([-90, 0, 0]) {
         roundedRect([wUSB+2*extra, hUSB+2*extra, dUSB], rUSB);
     }
 }
 
 module faceHoles(extra=0) {
+    debug("faceHoles()");
     buttons(extra=extra);
     leds(extra=extra);
     usb(extra=extra);
@@ -161,19 +180,27 @@ module threeLeds() {
 oled128x32Width = 38;
 oled128x32Depth = 2.45;
 
-module oled128x32() {
-    o = 0.1;
+module oled128x32(extra=0.1) {
+    debug("oled128x32()");
+    overlap = 0.1;
     union() {
-        // PCB
-        translate([0, 0, -3]) cube([oled128x32Width, 12, 4]);
-        // display module + pins + folded flat cable
-        translate([0, 0.25, 1-o]) cube([37, 11.5, 1.45+o]);
+        // PCB + display module + pins + folded flat cable:
+        // - start 3mm back to allow space for insertion
+        // Depth of PCB plus display etc = 2.45mm
+        translate([-extra, -extra, -3])
+            cube([oled128x32Width+2*extra, 12+2*extra, 3+oled128x32Depth]);
+
         // display active area including border!
-        translate([5+1.1, 12+0.25-2.1-7.584, 1+1.45-o]) cube([22.384, 7.584, 4+o]);
+        // push it out 4mm to ensure it penetrates through the front
+        // of the faceplate
+        // starts at 5mm (pcb inset) + 1.1mm (from the display edge),
+        translate([5+1.1, 12-0.25-2.1-7.584, oled128x32Depth-overlap])
+            cube([22.384, 7.584, 4+overlap]);
     }
 }
 
 module placeholder(extra=0) {
+    debug("placeholder()");
     difference() {
         pcb();
         holes();
@@ -184,8 +211,8 @@ module placeholder(extra=0) {
 }
 
 module supports(rO=2, rI=rHole-0.2, hh=2) {
+    debug("supports()");
     $fn=24;
-    rs = r - 0.3;
     dh = -(hh-1);
     translate([x1, y1, 0]) support(rO=rO, rI=rI, h=hh, d=2);
     translate([x2, y1, 0]) support(rO=rO, rI=rI, h=hh, d=2);
@@ -195,6 +222,7 @@ module supports(rO=2, rI=rHole-0.2, hh=2) {
 }
 
 module faceplate(d=2, hh=2, hTot=25.4, displayD=0.5, left=0, right=0) {
+    debug("faceplate()");
     leftMax = xButton0 - rButton - 2;
     left = min(left, leftMax);
     
@@ -208,7 +236,7 @@ module faceplate(d=2, hh=2, hTot=25.4, displayD=0.5, left=0, right=0) {
         translate([left, h, -hh]) cube([right - left, d, hTot]);
         union() {
             faceHoles(extra=0);
-            translate([w2 + oled128x32Width + 1, h + d - oled128x32Depth - displayD, -1])
+            translate([w2 + oled128x32Width + 1, h + d - oled128x32Depth - displayD, -0.5])
                 rotate([-90, 180, 0])
                 oled128x32();
         }
@@ -218,6 +246,7 @@ module faceplate(d=2, hh=2, hTot=25.4, displayD=0.5, left=0, right=0) {
 leftForCenter = -((wTot - w1) / 2);
 
 module supportsAndFaceplate(rO=2, rI=rHole-0.2, hh=2, dF=2) {
+    debug("supportsAndFaceplate()");
     supports(rO, rI, hh);
     
     translate([x1-rO, y1, -hh]) cube([rO*2, h+dF-y1, 1]);
@@ -229,13 +258,14 @@ module supportsAndFaceplate(rO=2, rI=rHole-0.2, hh=2, dF=2) {
     faceplate(d=dF, hh=hh);
 }
 
-sideHoleYs = [16.9]; // , 118.5];
-sideHoleZ = 6.35;
+sideHoleYs = [21, 81, 111];
+sideHoleZ = 4.5;
 
 module sideHoles(left, right) {
+    debug("sideHoles()");
     $fn=24;
     for(sideHoleY = sideHoleYs) {
-        echo("sideHoleY = ", sideHoleY);
+        debug(["sideHoleY = ", sideHoleY]);
         // left
         translate([left, h - sideHoleY, sideHoleZ])
         rotate([0, -90, 0])
@@ -248,13 +278,14 @@ module sideHoles(left, right) {
     }
 }
 
-bottomHoleYs = [29.52, 61.27, 105.72];
-bottomHoleX = 3.18;
+bottomHoleYs = [30, 100];
+bottomHoleX = 3;
 
 module bottomHoles(left, right) {
+    debug("bottomHoles()");
     $fn=24;
     for (bottomHoleY = bottomHoleYs) {
-        echo("bottomHoleY = ", bottomHoleYs);
+        debug(["bottomHoleY = ", bottomHoleY]);
         // left
         translate([left + bottomHoleX, h - bottomHoleY, 0])
         cylinder(r=1.76, h=4, center=true);
@@ -266,6 +297,7 @@ module bottomHoles(left, right) {
 }
 
 module lowerBoxAndFaceplate(rO=2, rI=rHole-0.2, hh=5, dF=2, left=-21, right=left+101.6) {
+    debug("lowerBoxAndFaceplate()");
     supports(rO, rI, hh);
 
     hTot = h + hConn;
@@ -295,10 +327,107 @@ module lowerBoxAndFaceplate(rO=2, rI=rHole-0.2, hh=5, dF=2, left=-21, right=left
 }
 
 module lid() {
+    debug("lid()");
 }
+
+module bottomBar(p1, p2, w, h) {
+    dx = p2[0] - p1[0];
+    dy = p2[1] - p1[1];
+    
+    l = sqrt(dx*dx + dy*dy);
+    ndx = dx / l;
+    ndy = dy / l;
+    
+    angle = atan2(dy, dx);
+    
+    translate([p1[0], p1[1], 0])
+        rotate([0, 0, angle])
+        translate([0, -w/2, 0])
+        cube([l, w, h]);
+}
+
+module roundedCorner(r, h) {
+    union() {
+        translate([0, 0, h/2]) cylinder(r=r, h=h, center=1);
+        translate([-r, 0, 0]) cube([2*r, r, 1]);
+        translate([0, -r, 0]) cube([r, 2*r, 1]);
+    }
+}
+
+module minimalBoxAndFaceplate(rO=2, rI=rHole-0.2, hh=5, dF=2, left=-21, right=left+101.6) {
+    debug("lowerBoxAndFaceplate()");
+    supports(rO, rI, hh);
+
+    hTot = h + hConn;
+
+    difference() {
+        union() {
+            sideStartY = h - sideHoleYs[1] - 4;
+            sideH = h - sideStartY;
+            sideZ = 9;
+            sideZ2 = sideZ / 2;
+            
+            bottomStartY = h - bottomHoleYs[1] - 4;
+            bottomH = h - bottomStartY;
+            bottomW = 6;
+            bottomR = bottomW / 2;
+            
+            // bottom left side
+            translate([left, bottomStartY + bottomR, -hh]) cube([bottomW, bottomH - bottomR, 1]);
+            // bottom right side
+            translate([right - bottomW, bottomStartY + bottomR, -hh]) cube([bottomW, bottomH - bottomR, 1]);
+            
+            // bottom, left supports
+            translate([x1 - bottomR, y1, -hh]) cube([bottomW, h-y1, 1]);
+            translate([x1, y1, -hh]) cylinder(r=bottomR, h=1);
+            // bottom, right supports
+            translate([x2 - bottomR, y1, -hh]) cube([bottomW, h-y1, 1]);
+            translate([x2, y1, -hh]) cylinder(r=bottomR, h=1);
+            // bottom, back
+            translate([left + bottomR, bottomStartY + bottomR, 0.5-hh]) cylinder(r=bottomR, h=1, center=true);
+            translate([right - bottomR, bottomStartY + bottomR, 0.5-hh]) cylinder(r=bottomR, h=1, center=true);
+            
+            xx0 = left + bottomW/2;
+            xx1 = right - bottomW / 2;
+            yy0 = bottomStartY + bottomW / 2;
+            yy1 = h - bottomW / 2;
+            
+            translate([0, 0, -hh]) bottomBar([xx0, yy0], [x1, y1], bottomW, 1);
+            translate([0, 0, -hh]) bottomBar([x1, y1], [xx1, yy1], bottomW, 1);
+            translate([0, 0, -hh]) bottomBar([xx1, yy0], [x2, y1], bottomW, 1);
+            translate([0, 0, -hh]) bottomBar([x2, y1], [xx0, yy1], bottomW, 1);
+            
+            $fn=24;
+            // left side
+            translate([left, sideStartY, -hh]) cube([1, sideH, sideZ2]);
+            translate([left, sideStartY+sideZ2, -hh+sideZ2]) cube([1, sideH-sideZ2,
+ sideZ2]);
+            translate([left, sideStartY+sideZ2, -hh+sideZ2]) rotate([0, 90, 0]) cylinder(r=sideZ2, h=1);
+            
+            // right side
+            translate([right-1, sideStartY, -hh]) cube([1, sideH, sideZ2]);
+            translate([right-1, sideStartY+sideZ2, -hh+sideZ2]) cube([1, sideH-sideZ2,
+ sideZ2]);
+            translate([right-1, sideStartY+sideZ2, -hh+sideZ2]) rotate([0, 90, 0]) cylinder(r=sideZ2, h=1);
+        }
+        union() {
+            translate([0, 0, -hh]) sideHoles(left, right);
+            translate([0, 0, -hh]) bottomHoles(left, right);
+        }
+    }
+    
+    faceplate(d=dF, hh=hh, left=left, right=right);
+    
+    // shroud back a bit from the faceplate, just a few millimieters
+    translate([left, h-3, -hh]) cube([1, 3.1, 25.4]);
+    translate([right-1, h-3, -hh]) cube([1, 3.1, 25.4]);
+    translate([left, h-3, 25.4-hh-1]) cube([right-left, 3.1, 1]);
+    translate([left, h-3, -hh]) cube([right-left, 3.1, 1]);
+    }
+
 
 // #placeholder(extra=-0.25);
 left=leftForCenter;
-lowerBoxAndFaceplate(hh=6.5, dF=2.5, left=left, right=left+101.6);
+minimalBoxAndFaceplate(hh=6.5, dF=2.5, left=left, right=left+101.6);
 
-
+    
