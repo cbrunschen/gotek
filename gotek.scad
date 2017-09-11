@@ -15,12 +15,6 @@ module debug(s) {
     }
 }
 
-module pcb() {
-    debug("pcb()");
-    cube([w1, h1, d]);
-    translate([0, h1, 0]) cube([w2, h2, d]);
-}
-
 rHole = 1.5;
 dEdge = 3;
 x1 = dEdge + rHole;
@@ -30,15 +24,23 @@ y1 = 21.5 + rHole;
 y2 = y1 + 21.25;
 y3 = y2 + 50;
 
-module holes(r=rHole, h=d) {
-    debug("holes()");
-    $fn=24;
-    translate([0, 0, h/2]) scale([1, 1, 2]) {
-        translate([x1, y1, 0]) cylinder(r=r, h=h, center=true);
-        translate([x2, y1, 0]) cylinder(r=r, h=h, center=true);
-        translate([x1, y2, 0]) cylinder(r=r, h=h, center=true);
-        translate([x2, y2, 0]) cylinder(r=r, h=h, center=true);
-        translate([x1, y3, 0]) cylinder(r=r, h=h, center=true);
+module pcb() {
+    debug("pcb()");
+    difference() {
+        union() {
+            cube([w1, h1, d]);
+            translate([0, h1-0.1, 0]) cube([w2, h2+0.1, d]);
+        }
+        union() {
+            $fn=24;
+            translate([0, 0, d/2]) scale([1, 1, 2]) {
+                translate([x1, y1, 0]) cylinder(r=r, h=d, center=true);
+                translate([x2, y1, 0]) cylinder(r=r, h=d, center=true);
+                translate([x1, y2, 0]) cylinder(r=r, h=d, center=true);
+                translate([x2, y2, 0]) cylinder(r=r, h=d, center=true);
+                translate([x1, y3, 0]) cylinder(r=r, h=d, center=true);
+            }
+        }
     }
 }
 
@@ -187,7 +189,7 @@ oled128x32Height = 12;
 oled128x32VisibleWidth = 22.384;
 oled128x32VisibleXOffset = 5+1.1;
 oled128x32VisibleHeight = 7.584;
-oled128x32VisibleYOffset = oled128x32Height - 0.25 - 2.1 - oled128x32VisibleHeight;
+oled128x32VisibleYOffset = oled128x32Height - 1.1 - oled128x32VisibleHeight;
 
 
 module oled128x32(extra=0.1) {
@@ -196,28 +198,26 @@ module oled128x32(extra=0.1) {
     union() {
         // PCB + display module + pins + folded flat cable:
         // - start 5mm back to allow space for insertion
-        translate([-extra, -extra, -5])
-            cube([oled128x32Width+2*extra, oled128x32Height+2*extra, 5+oled128x32Depth]);
+        translate([-extra, -extra, -(5+oled128x32Depth)])
+            cube([oled128x32Width, oled128x32Height, 5+oled128x32Depth]);
 
         // display active area including border!
         // push it out 4mm to ensure it penetrates through the front
         // of the faceplate
         // starts at 5mm (pcb inset) + 1.1mm (from the display edge),
-        translate([oled128x32VisibleXOffset, oled128x32VisibleYOffset, oled128x32Depth-overlap])
+        translate([oled128x32VisibleXOffset, oled128x32VisibleYOffset, -overlap])
             cube([oled128x32VisibleWidth, oled128x32VisibleHeight, 4+overlap]);
     }
 }
 
 module oled128x32Holder(extra=0.1) {
+    debug("oled128x32Holder()");
     translate([-1, -1, -4]) cube([2 + oled128x32Width, 2 + oled128x32Height, 4]);
 }
 
 module placeholder(extra=0) {
     debug("placeholder()");
-    difference() {
-        pcb();
-        holes();
-    }
+    pcb();
 
     faceHoles(extra=extra);
     connectors();
@@ -244,17 +244,19 @@ module faceplate(d=2, hh=2, hTot=25.4, displayD=0.5, left=0, right=0) {
     
     hMin = zLed + rLed + 2 + hh;
     hTot = max(hTot, hMin);
+  
+    oledOffset = -1.7;
     
     difference() {
         union() {
             translate([left, h, -hh]) cube([right - left, d, hTot]);
-            translate([w2 + oled128x32Width + 1, h + d - oled128x32Depth - displayD, -0.5])
+            translate([w2 + oled128x32Width + 1, h + d - displayD, oledOffset])
                 rotate([-90, 180, 0])
                 oled128x32Holder();
         }
         union() {
             faceHoles(extra=0);
-            translate([w2 + oled128x32Width + 1, h + d - oled128x32Depth - displayD, -0.5])
+            translate([w2 + oled128x32Width + 1, h + d - displayD, oledOffset])
                 rotate([-90, 180, 0])
                 oled128x32();
         }
@@ -278,6 +280,7 @@ module supportsAndFaceplate(rO=2, rI=rHole-0.2, hh=2, dF=2) {
 
 sideHoleYs = [21, 81, 111];
 sideHoleZ = 4.5;
+sideHoleR = 1.2;
 
 module sideHoles(left, right) {
     debug("sideHoles()");
@@ -287,17 +290,18 @@ module sideHoles(left, right) {
         // left
         translate([left, h - sideHoleY, sideHoleZ])
         rotate([0, -90, 0])
-        cylinder(r=1.76, h=4, center=true);
+        cylinder(r=sideHoleR, h=4, center=true);
         
         // right
         translate([right, h - sideHoleY, sideHoleZ])
         rotate([0, 90, 0])
-        cylinder(r=1.76, h=4, center=true);
+        cylinder(r=sideHoleR, h=4, center=true);
     }
 }
 
 bottomHoleYs = [30, 100];
 bottomHoleX = 3;
+bottomHoleR = 1.2;
 
 module bottomHoles(left, right) {
     debug("bottomHoles()");
@@ -306,11 +310,11 @@ module bottomHoles(left, right) {
         debug(["bottomHoleY = ", bottomHoleY]);
         // left
         translate([left + bottomHoleX, h - bottomHoleY, 0])
-        cylinder(r=1.76, h=4, center=true);
+        cylinder(r=bottomHoleR, h=4, center=true);
         
         // right
         translate([right - bottomHoleX, h - bottomHoleY, 0])
-        cylinder(r=1.76, h=4, center=true);
+        cylinder(r=bottomHoleR, h=4, center=true);
     }
 }
 
