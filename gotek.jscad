@@ -243,6 +243,70 @@ usb.model = function(params) {
     resolution:24});
 }
 
+oled = {};
+// width of PCB = 38mm
+oled.w = 38;
+// Height of PCB = 12mm
+oled.h = 12;
+// Depth of PCB plus display etc = 2.8mm
+oled.d = 2.8;
+
+oled.vw = 22.384;
+oled.vx = 5+1.1;
+oled.vh = 7.584;
+oled.vz = oled.h-1.1-oled.vh;
+
+oled.hole = function(params) {
+  params = paramsWithDefaults(params, {
+    extra: 0.25,
+    shield: 0.5,
+  });
+  var extra = params.extra;
+  var shield = params.shield;
+  
+  debug("oled.hole(" + JSON.stringify(params) + ")");
+  
+  overlap = 0.1;
+  return union([
+    // PCB + display module + pins + folded flat cable:
+    // - start 5mm back to allow space for insertion
+    cube({size:[oled.w, 5+oled.d, oled.h]}).translate([-extra, -(5+oled.d+shield), -extra]),
+
+    // display active area including border!
+    // push it out 4mm to ensure it penetrates through the front
+    // of the faceplate
+    // starts at 5mm (pcb inset) + 1.1mm (from the display edge),
+    cube({size:[oled.vw, 4+overlap, oled.vh]}).translate([oled.vx, -(overlap+shield), oled.vz]),
+  ]);
+}
+
+oled.holder = function(params) {
+  params = paramsWithDefaults(params, {
+    thickness: 1, 
+    extra: 0.25,
+    depth: 2.5 + oled.d,
+  });
+  
+  var thickness = params.thickness;
+  var depth = params.depth;
+  var extra = params.extra;
+  var pad = thickness + extra;
+  
+  return cube({size:[oled.w + 2+pad, depth, oled.h + 2*pad]}).translate([-pad, -depth, -pad]);
+}
+
+faceplate = {};
+faceplate.model = function(params) {
+  params = paramsWithDefaults(params, {
+    width: 101.6,
+    height: 25.4,
+    thickness: 2.5,
+  });
+  var thickness = params.thickness;
+  var width = params.width;
+  var height = params.height;
+}
+
 function main() {
   return union([
     pcb.model().setColor(css2rgb('yellow')),
@@ -250,5 +314,6 @@ function main() {
     buttons.model({n:3}).setColor(0, 0, 1, 0.5),
     leds.model({n:2}),
     usb.model(),
+    oled.holder().subtract(oled.hole()).translate([pcb.w2 + 5, 100, -2]).setColor([1, 1, 0, 0.5]),
   ]).translate([-pcb.w1/2, -pcb.h/2, 0]);
 }
