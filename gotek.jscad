@@ -389,9 +389,9 @@ oled.hole = function(params) {
 
 oled.holder = function(params) {
   params = paramsWithDefaults(params, {
-    thickness: 0.5, 
+    thickness: 1.0, 
     extra: 0.15,
-    depth: 2.5 + oled.d,
+    depth: 2 + oled.d,
   });
   
   debug("oled.holder(" + JSON.stringify(params) + ")");
@@ -403,10 +403,62 @@ oled.holder = function(params) {
   
   debug("oled.holder(): pad is " + pad);
   
-  return CSG.cube({
-    corner1: [-pad, -depth, -pad],
-    corner2: [oled.w+pad, 0, oled.h+pad],
-  }).subtract(oled.hole(params));
+  grabbers = [
+    //left
+    CSG.cube({
+      corner1: [-pad, -depth, oled.vz + oled.vh / 4],
+      corner2: [-pad + thickness, 0, oled.vz + 3 * oled.vh / 4],
+    }),
+    CAG.fromPoints([
+      [0, -depth, 0],
+      [0.5,  -(depth + oled.d) / 2, 0],
+      [0, -oled.d, 0],
+    ]).extrude({offset: [0, 0, oled.vh / 3]}).translate([-extra, 0, oled.vz + oled.vh / 3]),
+    
+    //right
+    CSG.cube({
+      corner1: [oled.w + extra, -depth, oled.vz + oled.vh / 4],
+      corner2: [oled.w + pad, 0, oled.vz + 3 * oled.vh / 4],
+    }),
+    CAG.fromPoints([
+      [0, -depth, 0],
+      [-0.5,  -(depth + oled.d) / 2, 0],
+      [0, -oled.d, 0],
+    ]).extrude({offset: [0, 0, oled.vh / 3]}).translate([oled.w + extra, 0, oled.vz + oled.vh / 3]),
+  ];
+    
+  var gw = oled.w / 8;
+  var gr = gw / 2;
+  
+  for (i = 0; i < 2; i++) {
+    x = (1+i) * oled.w / 3;
+    
+    grabbers = grabbers.concat([
+      //top
+      CSG.cube({
+        corner1: [x-gr, -depth, oled.h + extra],
+        corner2: [x+gr, 0, oled.h + pad],
+      }),
+      CAG.fromPoints([
+        [0, -depth, 0],
+        [0.5,  -(depth + oled.d) / 2, 0],
+        [0, -oled.d, 0],
+      ]).extrude({offset: [0, 0, gw]}).rotateY(90).translate([x-gr, 0, oled.h + extra]),
+  
+      //bottom
+      CSG.cube({
+        corner1: [x-gr, -depth, -pad],
+        corner2: [x+gr, 0, -extra],
+      }),
+      CAG.fromPoints([
+        [0, -depth, 0],
+        [-0.5,  -(depth + oled.d) / 2, 0.5],
+        [0, -oled.d, 0],
+      ]).extrude({offset: [0, 0, gw]}).rotateY(90).translate([x-gr, 0, -extra]),
+    ]);
+  }
+  
+  return union(grabbers);
 }
 
 faceplate = {};
@@ -709,6 +761,10 @@ box.upper.model = function(params) {
   ]));
 }
 
+function frame(params) {
+  
+}
+
 function placeholder(params) {
   params = paramsWithDefaults(params, {
     nLeds: 2,
@@ -731,7 +787,7 @@ function main() {
     // oled.holder().subtract(oled.hole()).translate([pcb.w2 + 5, 100, -2]).setColor([1, 1, 0, 0.5]),
     faceplate.model({extra:0.2, oledHolderThickness:0.5}),
     // shroud.model(),
-    box.lower.model(),
-    box.upper.model().translate([0, 0, 15]),
+    box.lower.model().setColor([1, 0, 0, 0.5]),
+    // box.upper.model().setColor([0, 0, 1, 0.5]),//.translate([0, 0, 15]),
   ]).translate([-pcb.w1/2, -pcb.h/2, 0]);
 }
