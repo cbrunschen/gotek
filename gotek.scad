@@ -1,3 +1,5 @@
+$fn = 24;
+
 w1 = 59;
 h1 = 54.5;
 w2 = 39;
@@ -32,7 +34,7 @@ module pcb() {
             translate([0, h1-0.1, 0]) cube([w2, h2+0.1, d]);
         }
         union() {
-            $fn=24;
+            //$fn=24;
             translate([0, 0, d/2]) scale([1, 1, 2]) {
                 translate([x1, y1, 0]) cylinder(r=r, h=d, center=true);
                 translate([x2, y1, 0]) cylinder(r=r, h=d, center=true);
@@ -92,7 +94,7 @@ xButton0 = xButton1 - xSpacingButton;
 module horizontalCylinder(x, y, z, r, d) {
     debug("horizontalCylinder()");
     translate([x, y, z]) rotate([-90, 0, 0]) {
-        $fn = 24;
+        //$fn = 24;
         translate([0, 0, d/2 - 0.1]) cylinder(r=r, h=d + 0.1, center=true);
     }
 }
@@ -145,7 +147,7 @@ module roundedRect(size, radius)
 	linear_extrude(height=z)
 	hull()
 	{
-        $fn=24;
+        //$fn=24;
         
 		// place 4 circles in the corners, with the given radius
 		translate([(-x/2)+radius, (-y/2)+radius, 0])
@@ -225,7 +227,7 @@ module placeholder(extra=0) {
 
 module supports(rO=2, rI=rHole-0.2, hh=2) {
     debug("supports()");
-    $fn=24;
+    //$fn=24;
     dh = -(hh-1);
     translate([x1, y1, 0]) support(rO=rO, rI=rI, h=hh, d=2);
     translate([x2, y1, 0]) support(rO=rO, rI=rI, h=hh, d=2);
@@ -284,7 +286,7 @@ sideHoleR = 1.2;
 
 module sideHoles(left, right) {
     debug("sideHoles()");
-    $fn=24;
+    //$fn=24;
     for(sideHoleY = sideHoleYs) {
         debug(["sideHoleY = ", sideHoleY]);
         // left
@@ -305,7 +307,7 @@ bottomHoleR = 1.2;
 
 module bottomHoles(left, right) {
     debug("bottomHoles()");
-    $fn=24;
+    //$fn=24;
     for (bottomHoleY = bottomHoleYs) {
         debug(["bottomHoleY = ", bottomHoleY]);
         // left
@@ -376,23 +378,29 @@ module roundedCorner(r, h) {
     }
 }
 
+
 module minimalBoxAndFaceplate(rO=2, rI=rHole-0.2, hh=5, dF=2, left=-21, right=left+101.6) {
     debug("lowerBoxAndFaceplate()");
     supports(rO, rI, hh);
 
+    sideStartY = h - sideHoleYs[1] - 4;
+    sideH = h - sideStartY;
+    sideZ = 9;
+    sideZ2 = sideZ / 2;
+
+    bottomStartY = h - bottomHoleYs[1] - 4;
+    bottomH = h - bottomStartY;
+    bottomW = 6;
+    bottomR = bottomW / 2;
+
     hTot = h + hConn;
+    xx0 = left + bottomW/2;
+    xx1 = right - bottomW / 2;
+    yy0 = bottomStartY + bottomW / 2;
+    yy1 = h - bottomW / 2;
 
     difference() {
         union() {
-            sideStartY = h - sideHoleYs[1] - 4;
-            sideH = h - sideStartY;
-            sideZ = 9;
-            sideZ2 = sideZ / 2;
-            
-            bottomStartY = h - bottomHoleYs[1] - 4;
-            bottomH = h - bottomStartY;
-            bottomW = 6;
-            bottomR = bottomW / 2;
             
             // bottom left side
             translate([left, bottomStartY + bottomR, -hh]) cube([bottomW, bottomH - bottomR, 1]);
@@ -409,17 +417,13 @@ module minimalBoxAndFaceplate(rO=2, rI=rHole-0.2, hh=5, dF=2, left=-21, right=le
             translate([left + bottomR, bottomStartY + bottomR, 0.5-hh]) cylinder(r=bottomR, h=1, center=true);
             translate([right - bottomR, bottomStartY + bottomR, 0.5-hh]) cylinder(r=bottomR, h=1, center=true);
             
-            xx0 = left + bottomW/2;
-            xx1 = right - bottomW / 2;
-            yy0 = bottomStartY + bottomW / 2;
-            yy1 = h - bottomW / 2;
             
             translate([0, 0, -hh]) bottomBar([xx0, yy0], [x1, y1], bottomW, 1);
             translate([0, 0, -hh]) bottomBar([x1, y1], [xx1, yy1], bottomW, 1);
             translate([0, 0, -hh]) bottomBar([xx1, yy0], [x2, y1], bottomW, 1);
             translate([0, 0, -hh]) bottomBar([x2, y1], [xx0, yy1], bottomW, 1);
             
-            $fn=24;
+            //$fn=24;
             // left side
             translate([left, sideStartY, -hh]) cube([1, sideH, sideZ2]);
             translate([left, sideStartY+sideZ2, -hh+sideZ2]) cube([1, sideH-sideZ2,
