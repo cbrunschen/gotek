@@ -292,7 +292,7 @@ oled.holder = function(params) {
   var extra = params.extra;
   var pad = thickness + extra;
   
-  return cube({size:[oled.w + 2+pad, depth, oled.h + 2*pad]}).translate([-pad, -depth, -pad]);
+  return cube({size:[oled.w + 2+pad, depth, oled.h + 2*pad]}).translate([-pad, -depth, -pad]).subtract(oled.hole(params));
 }
 
 faceplate = {};
