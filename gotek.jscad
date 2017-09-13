@@ -1073,8 +1073,12 @@ function main(args) {
   if (showBoard) {
     parts.push(placeholder(params).setColor([1, 1, 0, 0.5]));
   }
-  return union(parts).translate([-pcb.w1/2, -pcb.h/2, -bottom]);
+  var part = union(parts).translate([-pcb.w1/2, -pcb.h/2, -bottom]);
+  var bounds = part.getBounds();
   
+  cx = (bounds[0].x + bounds[1].x) / 2;
+  cy = (bounds[0].y + bounds[1].y) / 2;
+  return part.translate([-cx, -cy, 0]);
 }
 
 function debugDisplay(display) {
