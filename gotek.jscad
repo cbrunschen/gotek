@@ -887,7 +887,7 @@ function getParameterDefinitions() {
     {
       name: 'shape', 
       type: 'choice', 
-      values: ['BOX', 'BOX+LID', 'FRAME'], 
+      values: ['BOX', 'BOX+LID', 'LID', 'FRAME'], 
       captions: ['Box', 'Box + Lid', 'Frame'],
       caption: 'Shape:',
       initial: 'FRAME',
@@ -933,12 +933,13 @@ function main(args) {
   var parts = [
     faceplate.model(params),
   ];
-  if (shape.startsWith('BOX')) {
+  if (shape.includes('BOX')) {
     parts.push(box.lower.model(params));
-    if (shape.includes('LID')) {
-      parts.push(box.upper.model(params).rotateY(180).translate([2*left-2, 0, bottom + bottom + height]));
-    }
-  } else if (shape == 'FRAME') {
+  }
+  if (shape.includes('LID')) {
+    parts.push(box.upper.model(params).rotateY(180).translate([2*left-2, 0, bottom + bottom + height]));
+  }
+  if (shape == 'FRAME') {
     parts.push(frame(params));
   } else {
     // nothing!
