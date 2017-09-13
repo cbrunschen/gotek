@@ -318,9 +318,9 @@ usb = {};
 usb.w = 15;
 usb.h = 7.5;
 usb.d = 20;
-usb.x = 22.6 + usb.w/2;
+usb.x = 22 + usb.w/2;
 usb.y = pcb.h;
-usb.z = 1.5 + usb.h/2;
+usb.z = pcb.d + usb.h/2;
 usb.r = 1.75;
 
 usb.model = function(params) {
@@ -357,6 +357,20 @@ oled.vx = 5+1.1;
 oled.vh = 7.584;
 oled.vz = oled.h-1.1-oled.vh;
 
+oled.placeXZ = function(params) {
+  params = paramsWithDefaults(params, {
+    extra: 0.15,
+    holderThickness: 0.5,
+  });
+  
+  var extra = params.extra;
+  var holderThickness = params.holderThickness;
+  
+  x = pcb.w2 + holderThickness + 0.5 + extra;
+  z = usb.z - oled.vh/2 - oled.vz;
+  return [x, z];
+}
+
 oled.hole = function(params) {
   params = paramsWithDefaults(params, {
     extra: 0.15,
@@ -389,7 +403,7 @@ oled.hole = function(params) {
 
 oled.holder = function(params) {
   params = paramsWithDefaults(params, {
-    thickness: 1.0, 
+    thickness: 0.5, 
     extra: 0.15,
     depth: 2 + oled.d,
   });
@@ -466,6 +480,61 @@ oled.holder = function(params) {
   return union(grabbers);
 }
 
+threeDigitLed = {};
+threeDigitLed.w = 36.5;  // pcb width
+threeDigitLed.h = 17;  // pcb height
+threeDigitLed.vw = 21.15;  // visible width
+threeDigitLed.vh = 11.15;  // visible height
+threeDigitLed.vx = 11.5;  // offset from left pcb edge to left display edge
+threeDigitLed.vz = 4.5;  // offset from bottom pcb edge to bottom display edge
+threeDigitLed.baseline = 6.0;  // offset from botom pcb edge to baseline for alignment
+threeDigitLed.vd = 5.0; // depth (y-axis) of display from pcb surface
+
+threeDigitLed.placeXZ = function(params) {
+  params = paramsWithDefaults(params, {
+    extra: 0.15,
+  });
+
+  var extra = params.extra;
+  x = usb.x + usb.w/2 + 2;
+  z = usb.z - (usb.h/2) - threeDigitLed.baseline;
+  return [x, z];
+}
+
+threeDigitLed.hole = function(params) {
+  params = paramsWithDefaults(params, {
+    extra: 0.15,
+  });
+  var extra = params.extra;
+
+  return CSG.cube({
+    corner1: [threeDigitLed.vx-extra, -10, threeDigitLed.vz-extra],
+    corner2: [threeDigitLed.vx + threeDigitLed.vw + extra, 10, threeDigitLed.vz + threeDigitLed.vh + extra],
+  });
+}
+
+threeDigitLed.holder = function(params) {
+  params = paramsWithDefaults(params, {
+    thickness: 1.0,
+    extra: 0.15,
+    bottom: 0,
+  });
+  var extra = params.extra;
+  var thickness = params.thickness;
+  var bottom = params.bottom;
+
+  return union([
+    CSG.cube({
+      corner1: [1, -(threeDigitLed.vd - extra), bottom],
+      corner2: [1+thickness, 0, threeDigitLed.h-1],
+    }),
+    CSG.cube({
+      corner1: [threeDigitLed.w-1-thickness, -(threeDigitLed.vd - extra), bottom],
+      corner2: [threeDigitLed.w-1, 0, threeDigitLed.h-1],
+    }),
+  ]);
+}
+
 faceplate = {};
 faceplate.model = function(params) {
   params = paramsWithDefaults(params, {
@@ -477,7 +546,9 @@ faceplate.model = function(params) {
     nLeds: 2,
     nButtons: 3,
     extra: 0.15,
-    oledHolderThickness: 0.5,
+    holderThickness: 0.5,
+    display: oled,
+    displayXOffset: 0,
   });
   var left = params.left;
   var bottom = params.bottom;
@@ -487,7 +558,9 @@ faceplate.model = function(params) {
   var nLeds = params.nLeds;
   var nButtons = params.nButtons;
   var extra = params.extra;
-  var oledHolderThickness = params.oledHolderThickness;
+  var holderThickness = params.holderThickness;
+  var display = params.display;
+  var displayXOffset = params.displayXOffset;
   
   plate = cube({size:[width, thickness, height]}).translate([left, pcb.h, bottom]);
   holes = union([
@@ -497,10 +570,12 @@ faceplate.model = function(params) {
   ]);
   plate = plate.subtract(holes);
   
-  oledX = pcb.w2 + oledHolderThickness + 0.5 + extra;
-  oledZ = usb.z - oled.vh/2 - oled.vz;
-  plate = plate.subtract(oled.hole({thickness:oledHolderThickness, extra:extra}).translate([oledX, pcb.h+thickness, oledZ]));
-  plate = plate.union(oled.holder({thickness:oledHolderThickness, extra:extra}).translate([oledX, pcb.h+thickness, oledZ]));
+  xz = display.placeXZ({extra:extra, holderThickness:holderThickness});
+  displayX = xz[0] + displayXOffset;
+  displayZ = xz[1];
+  
+  plate = plate.subtract(display.hole({thickness:holderThickness, extra:extra, bottom:bottom-displayZ}).translate([displayX, pcb.h+thickness, displayZ]));
+  plate = plate.union(display.holder({thickness:holderThickness, extra:extra, bottom:bottom-displayZ}).translate([displayX, pcb.h+thickness, displayZ]));
   return plate;
 }
 
@@ -897,6 +972,15 @@ function getParameterDefinitions() {
       caption: 'Shape:',
       initial: 'FRAME',
     },
+    {
+      name: 'display', 
+      type: 'choice', 
+      values: ['OLED', '3LED'], 
+      captions: ['0.91" OLED', '3 digit LED'],
+      caption: 'Display:',
+      initial: 'OLED',
+    },
+    { name: 'displayXOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "Display X offset:" },
     { name: 'nLeds', type: 'int', initial:1, min:1, max:2, caption: "LEDs:"},
     { name: 'nButtons', type: 'int', initial:3, min:2, max:3, caption: "Buttons:"},
     { name: 'width', type: 'float', initial: 101.6, min:80.0, max:160.0, step:0.05, caption: "Bay Width:" },
@@ -905,12 +989,13 @@ function getParameterDefinitions() {
     { name: 'xOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "X offset from center:" },
     { name: 'zOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "Z offset from center:" },
     { name: 'extra', type: 'float', intitial: 0.2, min:0.0, max:1.0, step:0.05, caption: "Extra space"},
-    { name: 'showBoard', type: 'choice', caption: 'Show board?', values: [0, 1], initial:0, captions: ["No thanks", "Yes please"], initial: 1 }
+    { name: 'showBoard', type: 'choice', caption: 'Show board?', values: ['0', '1'], initial:'0', captions: ["No thanks", "Yes please"], initial: 1 }
   ];
 }
 
 function main(args) {
   var shape = args.shape;
+  var displayType = args.display;
   var width = args.width;
   var height = args.height;
   var xOffset = args.xOffset;
@@ -922,19 +1007,28 @@ function main(args) {
   var extra = args.extra;
   var showBoard = args.showBoard;
   var thickness = args.thickness;
+  var displayXOffset = args.displayXOffset;
     
+  var display = oled;
+  if (displayType == '3LED') {
+    display = threeDigitLed;
+  }
+
   var params = {
     width:width,
     left:left,
     height:height,
     bottom:bottom,
     extra:extra,
-    oledHolderThickness:1,
+    holderThickness:thickness/ 2,
     shroudDepth: 2,
     nButtons: nButtons,
     nLeds: nLeds,
     thickness: thickness,
+    display:display,
+    displayXOffset: displayXOffset,
   };
+  
   var parts = [];
   if (shape.includes('BOX')) {
     parts.push(faceplate.model(params)),
@@ -950,8 +1044,13 @@ function main(args) {
     // nothing!
   }
   
-  if (showBoard == 1) {
+  if (showBoard == '1') {
     parts.push(placeholder(params).setColor([1, 1, 0, 0.5]));
   }
-  return union(parts).translate([-pcb.w1/2, -pcb.h/2, -bottom]);
+  // return union(parts).translate([-pcb.w1/2, -pcb.h/2, -bottom]);
+  
+  return CSG.cube({
+    corner1: [-1.5,-2.5, -1.5],
+    corner2: [oled.w+1.5, 0, oled.h+1.5],
+  }).subtract(oled.hole({extra:0.15})).union(oled.holder({extra:0.15})).rotateX(-90).lieFlat();
 }
