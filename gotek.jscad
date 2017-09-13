@@ -888,7 +888,7 @@ function getParameterDefinitions() {
       name: 'shape', 
       type: 'choice', 
       values: ['BOX', 'BOX+LID', 'LID', 'FRAME'], 
-      captions: ['Box', 'Box + Lid', 'Frame'],
+      captions: ['Box only', 'Box + Lid', 'Lid only', 'Frame'],
       caption: 'Shape:',
       initial: 'FRAME',
     },
