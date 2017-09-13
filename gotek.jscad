@@ -403,6 +403,9 @@ oled.holder = function(params) {
   
   debug("oled.holder(): pad is " + pad);
   
+  var grabberLen = depth - oled.d;
+  var grabberMidY = -depth + grabberLen * 3 / 4;
+  
   grabbers = [
     //left
     CSG.cube({
@@ -411,7 +414,7 @@ oled.holder = function(params) {
     }),
     CAG.fromPoints([
       [0, -depth, 0],
-      [0.5,  -(depth + oled.d) / 2, 0],
+      [0.5,  grabberMidY, 0],
       [0, -oled.d, 0],
     ]).extrude({offset: [0, 0, oled.vh / 3]}).translate([-extra, 0, oled.vz + oled.vh / 3]),
     
@@ -422,7 +425,7 @@ oled.holder = function(params) {
     }),
     CAG.fromPoints([
       [0, -depth, 0],
-      [-0.5,  -(depth + oled.d) / 2, 0],
+      [-0.5,  grabberMidY, 0],
       [0, -oled.d, 0],
     ]).extrude({offset: [0, 0, oled.vh / 3]}).translate([oled.w + extra, 0, oled.vz + oled.vh / 3]),
   ];
@@ -441,7 +444,7 @@ oled.holder = function(params) {
       }),
       CAG.fromPoints([
         [0, -depth, 0],
-        [0.5,  -(depth + oled.d) / 2, 0],
+        [0.5,  grabberMidY, 0],
         [0, -oled.d, 0],
       ]).extrude({offset: [0, 0, gw]}).rotateY(90).translate([x-gr, 0, oled.h + extra]),
   
@@ -452,7 +455,7 @@ oled.holder = function(params) {
       }),
       CAG.fromPoints([
         [0, -depth, 0],
-        [-0.5,  -(depth + oled.d) / 2, 0.5],
+        [-0.5,  grabberMidY, 0.5],
         [0, -oled.d, 0],
       ]).extrude({offset: [0, 0, gw]}).rotateY(90).translate([x-gr, 0, -extra]),
     ]);
@@ -495,7 +498,7 @@ faceplate.model = function(params) {
   oledX = pcb.w2 + oledHolderThickness + 0.5 + extra;
   oledZ = usb.z - oled.vh/2 - oled.vz;
   plate = plate.subtract(oled.hole({thickness:oledHolderThickness, extra:extra}).translate([oledX, pcb.h+thickness, oledZ]));
-  plate = plate.union(oled.holder({thickness:oledHolderThickness, extra:extra}).setColor([0.2, 0.5, 1]).translate([oledX, pcb.h+thickness, oledZ]));
+  plate = plate.union(oled.holder({thickness:oledHolderThickness, extra:extra}).translate([oledX, pcb.h+thickness, oledZ]));
   return plate;
 }
 
@@ -894,12 +897,12 @@ function getParameterDefinitions() {
     },
     { name: 'nLeds', type: 'int', initial:1, min:1, max:2, caption: "LEDs:"},
     { name: 'nButtons', type: 'int', initial:3, min:2, max:3, caption: "Buttons:"},
-    { name: 'width', type: 'float', initial: 101.6, min:80, max:160, step:0.05, caption: "Bay Width:" },
-    { name: 'height', type: 'float', initial: 25.4, min:12, max:60, step:0.05, caption: "Bay Height:" },
-    { name: 'thickness', type: 'float', initial:1.0, min:0, max:5, step:0.05, caption: "Material thickness:"},
-    { name: 'xOffset', type: 'float', initial: 0, min:-20, max:20, step:0.05, caption: "X offset from center:" },
-    { name: 'zOffset', type: 'float', initial: 0, min:-20, max:20, step:0.05, caption: "Z offset from center:" },
-    { name: 'extra', type: 'float', intitial: 0.2, min:0, max:1, step:0.05, caption: "Extra space"},
+    { name: 'width', type: 'float', initial: 101.6, min:80.0, max:160.0, step:0.05, caption: "Bay Width:" },
+    { name: 'height', type: 'float', initial: 25.4, min:12.0, max:60.0, step:0.05, caption: "Bay Height:" },
+    { name: 'thickness', type: 'float', initial:1.0, min:0.0, max:5.0, step:0.05, caption: "Material thickness:"},
+    { name: 'xOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "X offset from center:" },
+    { name: 'zOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "Z offset from center:" },
+    { name: 'extra', type: 'float', intitial: 0.2, min:0.0, max:1.0, step:0.05, caption: "Extra space"},
     { name: 'showBoard', type: 'choice', caption: 'Show board?', values: [0, 1], initial:0, captions: ["No thanks", "Yes please"], initial: 1 }
   ];
 }
