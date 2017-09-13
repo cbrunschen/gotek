@@ -405,29 +405,31 @@ oled.holder = function(params) {
   
   var grabberLen = depth - oled.d;
   var grabberMidY = -depth + grabberLen * 3 / 4;
+  var sideGrabberZ = oled.vz + oled.vh / 4;
+  var sideGrabberH = oled.vh / 2;
   
   grabbers = [
     //left
     CSG.cube({
-      corner1: [-pad, -depth, oled.vz + oled.vh / 4],
-      corner2: [-pad + thickness, 0, oled.vz + 3 * oled.vh / 4],
+      corner1: [-pad, -depth, sideGrabberZ],
+      corner2: [-pad + thickness, 0, sideGrabberZ + sideGrabberH],
     }),
     CAG.fromPoints([
       [0, -depth, 0],
       [0.5,  grabberMidY, 0],
       [0, -oled.d, 0],
-    ]).extrude({offset: [0, 0, oled.vh / 3]}).translate([-extra, 0, oled.vz + oled.vh / 3]),
+    ]).extrude({offset: [0, 0, sideGrabberH]}).translate([-extra, 0, sideGrabberZ]),
     
     //right
     CSG.cube({
-      corner1: [oled.w + extra, -depth, oled.vz + oled.vh / 4],
-      corner2: [oled.w + pad, 0, oled.vz + 3 * oled.vh / 4],
+      corner1: [oled.w + extra, -depth, sideGrabberZ],
+      corner2: [oled.w + pad, 0, sideGrabberZ + sideGrabberH],
     }),
     CAG.fromPoints([
       [0, -depth, 0],
       [-0.5,  grabberMidY, 0],
       [0, -oled.d, 0],
-    ]).extrude({offset: [0, 0, oled.vh / 3]}).translate([oled.w + extra, 0, oled.vz + oled.vh / 3]),
+    ]).extrude({offset: [0, 0, sideGrabberH]}).translate([oled.w + extra, 0, sideGrabberZ]),
   ];
     
   var gw = oled.w / 8;
@@ -455,7 +457,7 @@ oled.holder = function(params) {
       }),
       CAG.fromPoints([
         [0, -depth, 0],
-        [-0.5,  grabberMidY, 0.5],
+        [-0.5,  grabberMidY, 0],
         [0, -oled.d, 0],
       ]).extrude({offset: [0, 0, gw]}).rotateY(90).translate([x-gr, 0, -extra]),
     ]);
