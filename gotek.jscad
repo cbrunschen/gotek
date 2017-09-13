@@ -352,15 +352,19 @@ oled.h = 12;
 // Depth of PCB plus display etc = 2.8mm
 oled.d = 2.8;
 
-oled.vw = 22.384;
-oled.vx = 5+1.1;
-oled.vh = 7.584;
+oled.leftPcb = 7;
+oled.rightPcb = 4.4;
+oled.wGlass = 26.6;
+
+oled.vw = 24.4;
+oled.vx = oled.leftPcb + 1.1;
+oled.vh = 7.6;
 oled.vz = oled.h-1.1-oled.vh;
 
 oled.placeXZ = function(params) {
   params = paramsWithDefaults(params, {
     extra: 0.15,
-    holderThickness: 0.5,
+    holderThickness: 1,
   });
   
   var extra = params.extra;
@@ -403,9 +407,9 @@ oled.hole = function(params) {
 
 oled.holder = function(params) {
   params = paramsWithDefaults(params, {
-    thickness: 0.5, 
+    thickness: 1,
     extra: 0.15,
-    depth: 2 + oled.d,
+    depth: 1 + oled.d,
   });
   
   debug("oled.holder(" + JSON.stringify(params) + ")");
@@ -418,7 +422,7 @@ oled.holder = function(params) {
   debug("oled.holder(): pad is " + pad);
   
   var grabberLen = depth - oled.d;
-  var grabberMidY = -depth + grabberLen * 3 / 4;
+  // var grabberMidY = -depth + grabberLen * 3 / 4;
   var sideGrabberZ = oled.vz + oled.vh / 4;
   var sideGrabberH = oled.vh / 2;
   
@@ -428,22 +432,22 @@ oled.holder = function(params) {
       corner1: [-pad, -depth, sideGrabberZ],
       corner2: [-pad + thickness, 0, sideGrabberZ + sideGrabberH],
     }),
-    CAG.fromPoints([
-      [0, -depth, 0],
-      [0.5,  grabberMidY, 0],
-      [0, -oled.d, 0],
-    ]).extrude({offset: [0, 0, sideGrabberH]}).translate([-extra, 0, sideGrabberZ]),
+    // CAG.fromPoints([
+    //   [0, -depth, 0],
+    //   [0.5,  grabberMidY, 0],
+    //   [0, -oled.d, 0],
+    // ]).extrude({offset: [0, 0, sideGrabberH]}).translate([-extra, 0, sideGrabberZ]),
     
     //right
     CSG.cube({
       corner1: [oled.w + extra, -depth, sideGrabberZ],
       corner2: [oled.w + pad, 0, sideGrabberZ + sideGrabberH],
     }),
-    CAG.fromPoints([
-      [0, -depth, 0],
-      [-0.5,  grabberMidY, 0],
-      [0, -oled.d, 0],
-    ]).extrude({offset: [0, 0, sideGrabberH]}).translate([oled.w + extra, 0, sideGrabberZ]),
+    // CAG.fromPoints([
+    //   [0, -depth, 0],
+    //   [-0.5,  grabberMidY, 0],
+    //   [0, -oled.d, 0],
+    // ]).extrude({offset: [0, 0, sideGrabberH]}).translate([oled.w + extra, 0, sideGrabberZ]),
   ];
     
   var gw = oled.w / 8;
@@ -458,22 +462,22 @@ oled.holder = function(params) {
         corner1: [x-gr, -depth, oled.h + extra],
         corner2: [x+gr, 0, oled.h + pad],
       }),
-      CAG.fromPoints([
-        [0, -depth, 0],
-        [0.5,  grabberMidY, 0],
-        [0, -oled.d, 0],
-      ]).extrude({offset: [0, 0, gw]}).rotateY(90).translate([x-gr, 0, oled.h + extra]),
+      // CAG.fromPoints([
+      //   [0, -depth, 0],
+      //   [0.5,  grabberMidY, 0],
+      //   [0, -oled.d, 0],
+      // ]).extrude({offset: [0, 0, gw]}).rotateY(90).translate([x-gr, 0, oled.h + extra]),
   
       //bottom
       CSG.cube({
         corner1: [x-gr, -depth, -pad],
         corner2: [x+gr, 0, -extra],
       }),
-      CAG.fromPoints([
-        [0, -depth, 0],
-        [-0.5,  grabberMidY, 0],
-        [0, -oled.d, 0],
-      ]).extrude({offset: [0, 0, gw]}).rotateY(90).translate([x-gr, 0, -extra]),
+      // CAG.fromPoints([
+      //   [0, -depth, 0],
+      //   [-0.5,  grabberMidY, 0],
+      //   [0, -oled.d, 0],
+      // ]).extrude({offset: [0, 0, gw]}).rotateY(90).translate([x-gr, 0, -extra]),
     ]);
   }
   
@@ -546,7 +550,7 @@ faceplate.model = function(params) {
     nLeds: 2,
     nButtons: 3,
     extra: 0.15,
-    holderThickness: 0.5,
+    holderThickness: 1,
     display: oled,
     displayXOffset: 0,
   });
@@ -964,6 +968,7 @@ function placeholder(params) {
 
 function getParameterDefinitions() {
   return [
+    // {name:'debug', type:'checkbox', checked:1,},
     {
       name: 'shape', 
       type: 'choice', 
@@ -988,12 +993,16 @@ function getParameterDefinitions() {
     { name: 'thickness', type: 'float', initial:1.0, min:0.0, max:5.0, step:0.05, caption: "Material thickness:"},
     { name: 'xOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "X offset from center:" },
     { name: 'zOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "Z offset from center:" },
-    { name: 'extra', type: 'float', intitial: 0.2, min:0.0, max:1.0, step:0.05, caption: "Extra space"},
-    { name: 'showBoard', type: 'choice', caption: 'Show board?', values: ['0', '1'], initial:'0', captions: ["No thanks", "Yes please"], initial: 1 }
+    { name: 'extra', type: 'float', intitial: 0.2, min:0.0, max:1.0, step:0.05, caption: "Extra space:"},
+    { name: 'showBoard', type: 'checkbox', checked:0, caption: 'Show board:' }
   ];
 }
 
 function main(args) {
+  if (args.debug) {
+    return debugShape();
+  }
+
   var shape = args.shape;
   var displayType = args.display;
   var width = args.width;
@@ -1020,7 +1029,7 @@ function main(args) {
     height:height,
     bottom:bottom,
     extra:extra,
-    holderThickness:thickness/ 2,
+    holderThickness:thickness,
     shroudDepth: 2,
     nButtons: nButtons,
     nLeds: nLeds,
@@ -1029,9 +1038,23 @@ function main(args) {
     displayXOffset: displayXOffset,
   };
   
+  var right = left + width;
+  var topp = bottom + height;
   var parts = [];
   if (shape.includes('BOX')) {
-    parts.push(faceplate.model(params)),
+    // Trim any part of the faceplace that would interfere with the box or the lid.
+    outsideBox = CSG.cube({
+      corner1: [left-10, -10, bottom-10],
+      corner2: [right+10, pcb.h+10, topp+10],
+    }).subtract(CSG.cube({
+      corner1: [left+thickness, 0, bottom-thickness],
+      corner2: [right-thickness, pcb.h+10, topp-thickness],
+    })).subtract(CSG.cube({
+      corner1: [left, pcb.h, bottom],
+      corner2: [right, pcb.h+10, topp],
+    }));
+
+    parts.push(faceplate.model(params).subtract(outsideBox)),
     parts.push(box.lower.model(params));
   }
   if (shape.includes('LID')) {
@@ -1044,13 +1067,25 @@ function main(args) {
     // nothing!
   }
   
-  if (showBoard == '1') {
+  if (showBoard) {
     parts.push(placeholder(params).setColor([1, 1, 0, 0.5]));
   }
-  // return union(parts).translate([-pcb.w1/2, -pcb.h/2, -bottom]);
+  return union(parts).translate([-pcb.w1/2, -pcb.h/2, -bottom]);
   
+}
+
+function debugDisplay(display) {
+  var space = 5;
+  var params = {
+    extra:0.15,
+    bottom:-space/2,
+  }
   return CSG.cube({
-    corner1: [-1.5,-2.5, -1.5],
-    corner2: [oled.w+1.5, 0, oled.h+1.5],
-  }).subtract(oled.hole({extra:0.15})).union(oled.holder({extra:0.15})).rotateX(-90).lieFlat();
+    corner1: [-space/2,-2.5, -space/2],
+    corner2: [display.w+space, 0, display.h+space],
+  }).subtract(display.hole(params)).union(display.holder(params)).translate([-display.w/2, -1.25, space/2]);
+}
+
+function debugShape() {
+  return debugDisplay(threeDigitLed);
 }
