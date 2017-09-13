@@ -507,16 +507,16 @@ shroud.model = function(params) {
     width: 101.6,
     height: 25.4,
     thickness: 1,
-    depth: 5,
-    overlap: 0.1,
+    shroudDepth: 5,
+    shroudOverlap: 0.1,
   });
   var left = params.left;
   var bottom = params.bottom;
   var thickness = params.thickness;
   var width = params.width;
   var height = params.height;
-  var depth = params.depth;
-  var overlap = params.overlap;
+  var depth = params.shroudDepth;
+  var overlap = params.shroudOverlap;
   var right = left + width;
   var topp = bottom + height;
   
@@ -761,8 +761,109 @@ box.upper.model = function(params) {
   ]));
 }
 
-function frame(params) {
+function bottomBar(p1, p2, w, h) {
+  var dx = p2[0] - p1[0];
+  var dy = p2[1] - p1[1];
   
+  var l = sqrt(dx*dx + dy*dy);
+  angle = atan2(dy, dx);
+  
+  return CSG.cube({
+    corner1:[0, -w/2, 0],
+    corner2:[l, w/2, h],
+  }).rotateZ(angle).translate([p1[0], p1[1], 0]);
+}
+
+
+function frame(params) {
+  params = paramsWithDefaults(params, {
+    left: usb.x - 101.6 / 2,
+    bottom: usb.z - 25.4 / 2,
+    width: 101.6,
+    thickness: 1,
+    barwidth: 6,
+    wallheight: 8,
+  });
+  var left = params.left;
+  var bottom = params.bottom;
+  var d = params.thickness;
+  var width = params.width;
+  var height = params.height;
+  var w = params.barwidth;
+  var h = params.wallheight;
+  var r = w / 2;
+  var right = left + width;
+  
+  var bottomMountY = pcb.h - mounts.bottom.ys[1];
+  var sideMountY = pcb.h - mounts.side.ys[1];
+  
+  return union([
+    bottomBar([left+r, pcb.h], [left+r, bottomMountY], w, d),
+    bottomBar([left+r, bottomMountY], [pcb.x1, pcb.y1], w, d),
+    bottomBar([pcb.x1, pcb.y1], [right-r, pcb.h-r], w, d),
+    bottomBar([pcb.x1, pcb.y1], [pcb.x1, pcb.h], w, d),
+    
+    bottomBar([right-r, pcb.h], [right-r, bottomMountY], w, d),
+    bottomBar([right-r, bottomMountY], [pcb.x2, pcb.y1], w, d),
+    bottomBar([pcb.x2, pcb.y1], [left+r, pcb.h-r], w, d),
+    bottomBar([pcb.x2, pcb.y1], [pcb.x2, pcb.h], w, d),
+    
+    CSG.cylinder({
+      start: [left+r, bottomMountY, 0],
+      end: [left+r, bottomMountY, d],
+      radius: r,
+    }),
+
+    CSG.cylinder({
+      start: [right-r, bottomMountY, 0],
+      end: [right-r, bottomMountY, d],
+      radius: r,
+    }),
+
+    CSG.cylinder({
+      start: [pcb.x1, pcb.y1, 0],
+      end: [pcb.x1, pcb.y1, d],
+      radius: r,
+    }),
+
+    CSG.cylinder({
+      start: [pcb.x2, pcb.y1, 0],
+      end: [pcb.x2, pcb.y1, d],
+      radius: r,
+    }),
+    
+    CSG.cube({
+      corner1: [left, sideMountY-h/2, 0],
+      corner2: [left+d, pcb.h, h/2],
+    }),
+    CSG.cube({
+      corner1: [left, sideMountY, 0],
+      corner2: [left+d, pcb.h, h],
+    }),
+    CSG.cylinder({
+      start: [left, sideMountY, h/2],
+      end: [left+d, sideMountY, h/2],
+      radius: h/2,
+    }),
+
+    CSG.cube({
+      corner1: [right-d, sideMountY-h/2, 0],
+      corner2: [right, pcb.h, h/2],
+    }),
+    CSG.cube({
+      corner1: [right-d, sideMountY, 0],
+      corner2: [right, pcb.h, h],
+    }),
+    CSG.cylinder({
+      start: [right-d, sideMountY, h/2],
+      end: [right, sideMountY, h/2],
+      radius: h/2,
+    }),
+  ])
+      .subtract(mounts.holes(left, right))
+      .translate([0, 0, bottom])
+      .union(supports.model({hh: -bottom}))
+      .union(shroud.model(params));
 }
 
 function placeholder(params) {
@@ -781,13 +882,70 @@ function placeholder(params) {
   ]);
 }
 
-function main() {
-  return union([
-    placeholder({nLeds:2, nButtons:3}).setColor(0.2, 1, 0.2, 0.5),
-    // oled.holder().subtract(oled.hole()).translate([pcb.w2 + 5, 100, -2]).setColor([1, 1, 0, 0.5]),
-    faceplate.model({extra:0.2, oledHolderThickness:0.5}),
-    // shroud.model(),
-    box.lower.model().setColor([1, 0, 0, 0.5]),
-    // box.upper.model().setColor([0, 0, 1, 0.5]),//.translate([0, 0, 15]),
-  ]).translate([-pcb.w1/2, -pcb.h/2, 0]);
+function getParameterDefinitions() {
+  return [
+    {
+      name: 'shape', 
+      type: 'choice', 
+      values: ['BOX', 'BOX+LID', 'FRAME'], 
+      captions: ['Box', 'Box + Lid', 'Frame'],
+      caption: 'Shape:',
+      initial: 'FRAME',
+    },
+    { name: 'nLeds', type: 'int', initial:1, min:1, max:2, caption: "LEDs:"},
+    { name: 'nButtons', type: 'int', initial:3, min:2, max:3, caption: "Buttons:"},
+    { name: 'width', type: 'float', initial: 101.6, min:80, max:160, caption: "Bay Width:" },
+    { name: 'height', type: 'float', initial: 25.4, min:12, max:60, caption: "Bay Height:" },
+    { name: 'thickness', type: 'float', initial:1.0, min:0, max:5, caption: "Material thickness:"},
+    { name: 'xOffset', type: 'float', initial: 0, min:-20, max:20, caption: "X offset from center:" },
+    { name: 'zOffset', type: 'float', initial: 0, min:-20, max:20, caption: "Z offset from center:" },
+    { name: 'extra', type: 'float', intitial: 0.2, min:0, max:1, caption: "Extra space"},
+    { name: 'showBoard', type: 'choice', caption: 'Show board?', values: [0, 1], initial:0, captions: ["No thanks", "Yes please"], initial: 1 }
+  ];
+}
+
+function main(args) {
+  var shape = args.shape;
+  var width = args.width;
+  var height = args.height;
+  var xOffset = args.xOffset;
+  var zOffset = args.zOffset;
+  var left = usb.x - width/2 - xOffset;
+  var bottom = usb.z - height/2 - zOffset;
+  var nLeds = args.nLeds;
+  var nButtons = args.nButtons;
+  var extra = args.extra;
+  var showBoard = args.showBoard;
+  var thickness = args.thickness;
+    
+  var params = {
+    width:width,
+    left:left,
+    height:height,
+    bottom:bottom,
+    extra:extra,
+    oledHolderThickness:1,
+    shroudDepth: 2,
+    nButtons: nButtons,
+    nLeds: nLeds,
+    thickness: thickness,
+  };
+  var parts = [
+    faceplate.model(params),
+  ];
+  if (shape.startsWith('BOX')) {
+    parts.push(box.lower.model(params));
+    if (shape.includes('LID')) {
+      parts.push(box.upper.model(params).rotateY(180).translate([2*left-2, 0, bottom + bottom + height]));
+    }
+  } else if (shape == 'FRAME') {
+    parts.push(frame(params));
+  } else {
+    // nothing!
+  }
+  
+  if (showBoard == 1) {
+    parts.push(placeholder(params).setColor([1, 1, 0, 0.5]));
+  }
+  return union(parts).translate([-pcb.w1/2, -pcb.h/2, -bottom]);
 }
