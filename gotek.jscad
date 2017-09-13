@@ -894,12 +894,12 @@ function getParameterDefinitions() {
     },
     { name: 'nLeds', type: 'int', initial:1, min:1, max:2, caption: "LEDs:"},
     { name: 'nButtons', type: 'int', initial:3, min:2, max:3, caption: "Buttons:"},
-    { name: 'width', type: 'float', initial: 101.6, min:80, max:160, caption: "Bay Width:" },
-    { name: 'height', type: 'float', initial: 25.4, min:12, max:60, caption: "Bay Height:" },
-    { name: 'thickness', type: 'float', initial:1.0, min:0, max:5, caption: "Material thickness:"},
-    { name: 'xOffset', type: 'float', initial: 0, min:-20, max:20, caption: "X offset from center:" },
-    { name: 'zOffset', type: 'float', initial: 0, min:-20, max:20, caption: "Z offset from center:" },
-    { name: 'extra', type: 'float', intitial: 0.2, min:0, max:1, caption: "Extra space"},
+    { name: 'width', type: 'float', initial: 101.6, min:80, max:160, step:0.05, caption: "Bay Width:" },
+    { name: 'height', type: 'float', initial: 25.4, min:12, max:60, step:0.05, caption: "Bay Height:" },
+    { name: 'thickness', type: 'float', initial:1.0, min:0, max:5, step:0.05, caption: "Material thickness:"},
+    { name: 'xOffset', type: 'float', initial: 0, min:-20, max:20, step:0.05, caption: "X offset from center:" },
+    { name: 'zOffset', type: 'float', initial: 0, min:-20, max:20, step:0.05, caption: "Z offset from center:" },
+    { name: 'extra', type: 'float', intitial: 0.2, min:0, max:1, step:0.05, caption: "Extra space"},
     { name: 'showBoard', type: 'choice', caption: 'Show board?', values: [0, 1], initial:0, captions: ["No thanks", "Yes please"], initial: 1 }
   ];
 }
@@ -930,16 +930,16 @@ function main(args) {
     nLeds: nLeds,
     thickness: thickness,
   };
-  var parts = [
-    faceplate.model(params),
-  ];
+  var parts = [];
   if (shape.includes('BOX')) {
+    parts.push(faceplate.model(params)),
     parts.push(box.lower.model(params));
   }
   if (shape.includes('LID')) {
     parts.push(box.upper.model(params).rotateY(180).translate([2*left-2, 0, bottom + bottom + height]));
   }
   if (shape == 'FRAME') {
+    parts.push(faceplate.model(params)),
     parts.push(frame(params));
   } else {
     // nothing!
