@@ -546,7 +546,7 @@ faceplate.model = function(params) {
     bottom: usb.z - 25.4 / 2,
     width: 101.6,
     height: 25.4,
-    thickness: 2.5,
+    faceplateThickness: 2.5,
     nLeds: 2,
     nButtons: 3,
     extra: 0.15,
@@ -556,7 +556,7 @@ faceplate.model = function(params) {
   });
   var left = params.left;
   var bottom = params.bottom;
-  var thickness = params.thickness;
+  var faceplateThickness = params.faceplateThickness;
   var width = params.width;
   var height = params.height;
   var nLeds = params.nLeds;
@@ -566,7 +566,7 @@ faceplate.model = function(params) {
   var display = params.display;
   var displayXOffset = params.displayXOffset;
   
-  plate = cube({size:[width, thickness, height]}).translate([left, pcb.h, bottom]);
+  plate = cube({size:[width, faceplateThickness, height]}).translate([left, pcb.h, bottom]);
   holes = union([
     buttons.holes({n:nButtons, extra:extra}),
     leds.holes({n:nLeds, extra:extra}),
@@ -578,8 +578,8 @@ faceplate.model = function(params) {
   displayX = xz[0] + displayXOffset;
   displayZ = xz[1];
   
-  plate = plate.subtract(display.hole({thickness:holderThickness, extra:extra, bottom:bottom-displayZ}).translate([displayX, pcb.h+thickness, displayZ]));
-  plate = plate.union(display.holder({thickness:holderThickness, extra:extra, bottom:bottom-displayZ}).translate([displayX, pcb.h+thickness, displayZ]));
+  plate = plate.subtract(display.hole({thickness:holderThickness, extra:extra, bottom:bottom-displayZ}).translate([displayX, pcb.h+faceplateThickness, displayZ]));
+  plate = plate.union(display.holder({thickness:holderThickness, extra:extra, bottom:bottom-displayZ}).translate([displayX, pcb.h+faceplateThickness, displayZ]));
   return plate;
 }
 
@@ -990,6 +990,7 @@ function getParameterDefinitions() {
     { name: 'nButtons', type: 'int', initial:3, min:2, max:3, caption: "Buttons:"},
     { name: 'width', type: 'float', initial: 101.6, min:80.0, max:160.0, step:0.05, caption: "Bay Width:" },
     { name: 'height', type: 'float', initial: 25.4, min:12.0, max:60.0, step:0.05, caption: "Bay Height:" },
+    { name: 'faceplateThickness', type: 'float', initial:2.5, min:0.0, max:5.0, step:0.05, caption: "Faceplate thickness:"},
     { name: 'thickness', type: 'float', initial:1.0, min:0.0, max:5.0, step:0.05, caption: "Material thickness:"},
     { name: 'xOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "X offset from center:" },
     { name: 'zOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "Z offset from center:" },
@@ -1016,6 +1017,7 @@ function main(args) {
   var extra = args.extra;
   var showBoard = args.showBoard;
   var thickness = args.thickness;
+  var faceplateThickness = args.faceplateThickness;
   var displayXOffset = args.displayXOffset;
     
   var display = oled;
@@ -1029,6 +1031,7 @@ function main(args) {
     height:height,
     bottom:bottom,
     extra:extra,
+    faceplateThickness:faceplateThickness,
     holderThickness:thickness,
     shroudDepth: 2,
     nButtons: nButtons,
