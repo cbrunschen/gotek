@@ -105,14 +105,17 @@ function clone(o) {
   return p;
 }
 
-function paramsWithDefaults(params, defaults) {
-  result = clone(defaults);
-  if (params !== null && params !== undefined) {
-    Object.keys(params).forEach(function(key) {
-         result[key] = params[key];
+function extend(o, p) {
+  if (p !== null && p !== undefined) {
+    Object.keys(p).forEach(function(key) {
+         o[key] = p[key];
     });
   }
-  return result;
+  return o;
+}
+
+function paramsWithDefaults(params, defaults) {
+  return extend(clone(defaults), params);
 }
 
 var support = {};
@@ -145,7 +148,7 @@ support.model = function(params) {
 var supports = {};
 supports.model = function(params) {
   params = paramsWithDefaults(params, {
-    rO: 3,
+    rO: 2.5,
     rI: pcb.rHole - 0.2,
     hh : 2,
     d : 2,
@@ -160,9 +163,9 @@ supports.model = function(params) {
   return union([
     support.model({rO:rO, rI:rI, h:hh, d:2}).translate([pcb.x1, pcb.y1, 0]),
     support.model({rO:rO, rI:rI, h:hh, d:2}).translate([pcb.x2, pcb.y1, 0]),
-    support.model({rO:2.5, rI:1.5, h:hh, d:dh}).translate([pcb.x1, pcb.y2, 0]),
-    support.model({rO:2.5, rI:1.5, h:hh, d:dh}).translate([pcb.x2, pcb.y2, 0]),
-    support.model({rO:2.5, rI:1.5, h:hh, d:dh}).translate([pcb.x1, pcb.y3, 0]),
+    support.model({rO:rO, rI:1.5, h:hh, d:dh}).translate([pcb.x1, pcb.y2, 0]),
+    support.model({rO:rO, rI:1.5, h:hh, d:dh}).translate([pcb.x2, pcb.y2, 0]),
+    support.model({rO:rO, rI:1.5, h:hh, d:dh}).translate([pcb.x1, pcb.y3, 0]),
   ]);
 }
 
@@ -409,10 +412,10 @@ oled.placeXZ = function(params) {
 oled.hole = function(params) {
   params = paramsWithDefaults(params, {
     extra: 0.15,
-    shield: 0.5,
+    shieldThickness: 0.5,
   });
   var extra = params.extra;
-  var shield = params.shield;
+  var shieldThickness = params.shieldThickness;
   
   debug("oled.hole(" + JSON.stringify(params) + ")");
   
@@ -421,8 +424,8 @@ oled.hole = function(params) {
     // PCB + display module + pins + folded flat cable:
     // - start 5mm back to allow space for insertion
     CSG.cube({
-      corner1: [-extra, -(5+oled.d+shield), -extra],
-      corner2: [oled.w+extra, -shield, oled.h+extra],
+      corner1: [-extra, -(5+oled.d+shieldThickness), -extra],
+      corner2: [oled.w+extra, -shieldThickness, oled.h+extra],
     }),
 
     // display active area including border!
@@ -430,7 +433,7 @@ oled.hole = function(params) {
     // of the faceplate
     // starts at 5mm (pcb inset) + 1.1mm (from the display edge),
     CSG.cube({
-      corner1: [oled.vx, -(overlap+shield), oled.vz],
+      corner1: [oled.vx, -(overlap+shieldThickness), oled.vz],
       corner2: [oled.vx + oled.vw, 4+overlap, oled.vz + oled.vh],
     }),
   ]);  
@@ -438,14 +441,14 @@ oled.hole = function(params) {
 
 oled.holder = function(params) {
   params = paramsWithDefaults(params, {
-    thickness: 1,
+    holderThickness: 1,
     extra: 0.15,
     depth: 1 + oled.d,
   });
   
   debug("oled.holder(" + JSON.stringify(params) + ")");
   
-  var thickness = params.thickness;
+  var thickness = params.holderThickness;
   var depth = params.depth;
   var extra = params.extra;
   var pad = thickness + extra;
@@ -550,12 +553,12 @@ threeDigitLed.hole = function(params) {
 
 threeDigitLed.holder = function(params) {
   params = paramsWithDefaults(params, {
-    thickness: 1.0,
+    holderThickness: 1.0,
     extra: 0.15,
     bottom: 0,
   });
   var extra = params.extra;
-  var thickness = params.thickness;
+  var thickness = params.holderThickness;
   var bottom = params.bottom;
 
   return union([
@@ -582,8 +585,10 @@ faceplate.model = function(params) {
     nButtons: 3,
     extra: 0.15,
     holderThickness: 1,
+    shieldThickness: 0.5,
     display: oled,
     displayXOffset: 0,
+    debug: undefined,
   });
   var left = params.left;
   var bottom = params.bottom;
@@ -594,8 +599,14 @@ faceplate.model = function(params) {
   var nButtons = params.nButtons;
   var extra = params.extra;
   var holderThickness = params.holderThickness;
+  var shieldThickness = params.shieldThickness;
   var display = params.display;
   var displayXOffset = params.displayXOffset;
+  
+  if (params.debug !== undefined && params.debug) {
+    debug("params.debug is " + params.debug);
+    return cube({size:[width, 1.2, height]}).translate([left, pcb.h, bottom]);
+  }
   
   plate = cube({size:[width, faceplateThickness, height]}).translate([left, pcb.h, bottom]);
   holes = union([
@@ -609,8 +620,12 @@ faceplate.model = function(params) {
   displayX = xz[0] + displayXOffset;
   displayZ = xz[1];
   
-  plate = plate.subtract(display.hole({thickness:holderThickness, extra:extra, bottom:bottom-displayZ}).translate([displayX, pcb.h+faceplateThickness, displayZ]));
-  plate = plate.union(display.holder({thickness:holderThickness, extra:extra, bottom:bottom-displayZ}).translate([displayX, pcb.h+faceplateThickness, displayZ]));
+  plate = plate.subtract(
+      display.hole({holderThickness:holderThickness, shieldThickness:shieldThickness, extra:extra, bottom:bottom-displayZ})
+          .translate([displayX, pcb.h+faceplateThickness, displayZ]));
+  plate = plate.union(
+      display.holder({holderThickness:holderThickness, shieldThickness:shieldThickness, extra:extra, bottom:bottom-displayZ})
+          .translate([displayX, pcb.h+faceplateThickness, displayZ]));
   return plate;
 }
 
@@ -621,13 +636,15 @@ shroud.model = function(params) {
     bottom: usb.z - 25.4 / 2,
     width: 101.6,
     height: 25.4,
-    thickness: 1,
+    wallThickness: 1,
+    floorThickness: 1,
     shroudDepth: 5,
     shroudOverlap: 0.1,
   });
   var left = params.left;
   var bottom = params.bottom;
-  var thickness = params.thickness;
+  var wallThickness = params.wallThickness;
+  var floorThickness = params.floorThickness;
   var width = params.width;
   var height = params.height;
   var depth = params.shroudDepth;
@@ -638,22 +655,22 @@ shroud.model = function(params) {
   return union([
     CSG.cube({
       corner1: [left, pcb.h - depth, bottom],
-      corner2: [left + thickness, pcb.h + overlap, topp],
+      corner2: [left + wallThickness, pcb.h + overlap, topp],
     }),
     
     CSG.cube({
-      corner1: [left, pcb.h - depth, topp - thickness],
+      corner1: [left, pcb.h - depth, topp - floorThickness],
       corner2: [right, pcb.h + overlap, topp],
     }),
 
     CSG.cube({
-      corner1: [right - thickness, pcb.h - depth, bottom],
+      corner1: [right - wallThickness, pcb.h - depth, bottom],
       corner2: [right, pcb.h + overlap, topp],
     }),
 
     CSG.cube({
       corner1: [left, pcb.h - depth, bottom],
-      corner2: [right, pcb.h + overlap, bottom + thickness],
+      corner2: [right, pcb.h + overlap, bottom + floorThickness],
     }),
   ]);
 }
@@ -663,50 +680,138 @@ mounts.side = {};
 mounts.side.ys = [21, 81, 111];
 mounts.side.z = 4.5;
 mounts.side.r = 1.2;
+mounts.side.d = 2;
 
-mounts.side.holes = function(left, right) {
-  debug("sideHoles()");
+mounts.side.holes = function(left, right, minY) {
+  debug("mounts.side.holes()");
   var holes = [];
 
   for (var i = 0; i < mounts.side.ys.length; i++) {
-    var y = mounts.side.ys[i];
+    var y = pcb.h - mounts.side.ys[i];
+    if (y < minY) {
+      continue;
+    }
 
     // left
-    holes.push(cylinder({r:mounts.side.r, h:4, center:true}).rotateY(-90).translate([left, pcb.h - y, mounts.side.z]));
+    holes.push(cylinder({r:mounts.side.r, h:6, center:true}).rotateY(-90).translate([left, y, mounts.side.z]));
 
     // right
-    holes.push(cylinder({r:mounts.side.r, h:4, center:true}).rotateY(90).translate([right, pcb.h - y, mounts.side.z]));
+    holes.push(cylinder({r:mounts.side.r, h:6, center:true}).rotateY(90).translate([right, y, mounts.side.z]));
   }
 
   return union(holes);
+}
+
+mounts.side.model = function(left, right, minY) {
+  debug("mounts.side.model()");
+  var model = [];
+
+  var r = mounts.side.r + 1.5;
+
+  for (var i = 0; i < mounts.side.ys.length; i++) {
+    var y = pcb.h - mounts.side.ys[i];
+    if (y < minY) {
+      continue;
+    }
+    
+    // left
+    model.push(CSG.cylinder({
+      start:  [left, y, mounts.side.z],
+      end:    [left + mounts.side.d, y, mounts.side.z],
+      radius: r,
+      resolution:24,
+    }));
+    model.push(CSG.cube({
+      corner1: [left, y - r, 0],
+      corner2: [left + mounts.side.d, y + r, mounts.side.z],
+    }));
+
+    // right
+    model.push(CSG.cylinder({
+      start:  [right, y, mounts.side.z],
+      end:    [right - mounts.side.d, y, mounts.side.z],
+      radius: r,
+      resolution:24,
+    }));
+    model.push(CSG.cube({
+      corner1: [right, y - r, 0],
+      corner2: [right - mounts.side.d, y + r, mounts.side.z],
+    }));
+  }
+
+  return union(model);
 }
 
 mounts.bottom = {};
 mounts.bottom.ys = [30, 100];
 mounts.bottom.x = 3;
 mounts.bottom.r = 1.2;
+mounts.bottom.d = 2;
 
-mounts.bottom.holes = function(left, right) {
-  debug("bottomHoles()");
+mounts.bottom.holes = function(left, right, minY) {
+  debug("mounts.bottom.holes()");
   var holes = [];
 
   for (var i = 0; i < mounts.bottom.ys.length; i++) {
-    var y = mounts.bottom.ys[i];
+    var y = pcb.h - mounts.bottom.ys[i];
+    
+    if (y < minY) {
+      continue;
+    }
 
     // left
-    holes.push(cylinder({r:mounts.bottom.r, h:4, center:true}).translate([left + mounts.bottom.x, pcb.h - y, 0]));
+    holes.push(cylinder({r:mounts.bottom.r, h:4, center:true}).translate([left + mounts.bottom.x, y, 0]));
 
     // right
-    holes.push(cylinder({r:mounts.bottom.r, h:4, center:true}).translate([right - mounts.bottom.x, pcb.h - y, 0]));
+    holes.push(cylinder({r:mounts.bottom.r, h:4, center:true}).translate([right - mounts.bottom.x, y, 0]));
   }
 
   return union(holes);
 }
 
-mounts.holes = function(left, right) {
+mounts.bottom.model = function(left, right, minY) {
+  debug("mounts.bottom.model()");
+  var model = [];
+
+  for (var i = 0; i < mounts.bottom.ys.length; i++) {
+    var y = pcb.h - mounts.bottom.ys[i];
+    if (y < minY) {
+      continue;
+    }
+    
+    var r = mounts.bottom.r + 1;
+
+    // left
+    model.push(CSG.cylinder({
+      start:  [left + mounts.bottom.x, y, 0],
+      end:    [left + mounts.bottom.x, y, mounts.bottom.d],
+      radius: r,
+      resolution:24,
+    }));
+
+    // right
+    model.push(CSG.cylinder({
+      start:  [right - mounts.bottom.x, y, 0],
+      end:    [right - mounts.bottom.x, y, mounts.bottom.d],
+      radius: r,
+      resolution:24,
+    }));
+  }
+
+  return union(model);
+}
+
+mounts.holes = function(left, right, yMin) {
   return union([
-    mounts.bottom.holes(left, right),
-    mounts.side.holes(left, right),
+    mounts.bottom.holes(left, right, yMin),
+    mounts.side.holes(left, right, yMin),
+  ]);
+}
+
+mounts.model = function(left, right, yMin) {
+  return union([
+    mounts.side.model(left, right, yMin),
+    mounts.bottom.model(left, right, yMin),
   ]);
 }
 
@@ -718,58 +823,83 @@ box.lower.model = function(params) {
     bottom: usb.z - 25.4 / 2,
     width: 101.6,
     height: 25.4,
-    thickness: 1,
+    floorThickness: 1,
+    wallThickness: 1,
+    preset: 'none',
+    shroudDepth: 0,
   });
   var left = params.left;
   var bottom = params.bottom;
-  var thickness = params.thickness;
+  var floorThickness = params.floorThickness;
+  var wallThickness = params.wallThickness;
   var width = params.width;
   var height = params.height;
   var right = left + width;
-  var half = thickness / 2;
+  var halfWall = wallThickness / 2;
+  var outerWall = halfWall;
+  var halfFloor = floorThickness / 2;
+  var preset = params.preset;
+  var shroudDepth = params.shroudDepth;
   
   var ll = left / 2;
   var rr = (right + pcb.w1) / 2;
   var hh = bottom + height / 2;
+  var hu = hh + 1;
+  var hd = hh - 1;
+  var yy = pcb.yConn;
+  
+  if (preset == 'gotekbox') {
+    // Override the self-adjusting values.
+    // The width & height will have been passed in appropriately.
+    outerWall = min(1, halfWall);
+    ll = left + 14;
+    rr = right - 14;
+    hu = bottom + 14;
+    hd = bottom + 12;
+    yy = pcb.h - 120;
+    shroudDepth = 0;
+  }
   
   return union([
     CSG.cube({
-      corner1: [left, pcb.yConn, bottom],
-      corner2: [right, pcb.h, bottom + thickness],
+      corner1: [left, yy, bottom],
+      corner2: [right, pcb.h, bottom + floorThickness],
     }),
     
     CSG.cube({
-      corner1: [left, pcb.yConn, bottom],
-      corner2: [left + thickness, pcb.h, hh + half],
+      corner1: [left, yy, bottom],
+      corner2: [left + wallThickness, pcb.h, hu],
     }),
     
     CSG.cube({
-      corner1: [right - thickness, pcb.yConn, bottom],
-      corner2: [right, pcb.h, hh + half],
+      corner1: [right - wallThickness, yy, bottom],
+      corner2: [right, pcb.h, hu],
     }),
 
     CSG.cube({
-      corner1: [left, pcb.yConn, bottom],
-      corner2: [right, pcb.yConn + thickness, 0],
+      corner1: [left, yy, bottom],
+      corner2: [right, yy + wallThickness, 0],
     }),
 
     CSG.cube({
-      corner1: [left, pcb.yConn, bottom],
-      corner2: [ll + half, pcb.yConn + thickness, hh + half],
+      corner1: [left, yy, bottom],
+      corner2: [ll + outerWall, yy + wallThickness, hu],
     }),
 
     CSG.cube({
-      corner1: [rr - half, pcb.yConn, bottom],
-      corner2: [right, pcb.yConn + thickness, hh + half],
+      corner1: [rr - outerWall, yy, bottom],
+      corner2: [right, yy + wallThickness, hu],
     }),
     
     supports.model({hh: -bottom}),
+    mounts.model(left, right, yy).translate([0, 0, bottom]),
+    shroud.model(params),
   ]).subtract(union([
     CSG.cube({
-      corner1: [left + half, pcb.yConn + half, hh - half],
-      corner2: [right - half, pcb.h, hh + thickness], 
+      corner1: [left + outerWall, yy + outerWall, hd],
+      corner2: [right - outerWall, pcb.h - shroudDepth, bottom + height], 
     }),
-    mounts.holes(left, right).translate([0, 0, bottom]),
+    mounts.holes(left, right, yy).translate([0, 0, bottom]),
   ]));
 }
 
@@ -780,94 +910,103 @@ box.upper.model = function(params) {
     bottom: usb.z - 25.4 / 2,
     width: 101.6,
     height: 25.4,
-    thickness: 1,
+    floorThickness: 1,
+    wallThickness: 1,
+    shroudDepth: 0,
   });
   var left = params.left;
   var bottom = params.bottom;
-  var thickness = params.thickness;
+  var floorThickness = params.floorThickness;
+  var wallThickness = params.wallThickness;
   var width = params.width;
   var height = params.height;
   var topp = bottom + height;
   var right = left + width;
-  var half = thickness / 2;
+  var halfWall = wallThickness / 2;
+  var halfFloor = floorThickness / 2;
+  var shroudDepth = params.shroudDepth;
+  
+  var yMax = pcb.h - shroudDepth;
   
   var ll = left / 2;
   var rr = (right + pcb.w1) / 2;
   var hh = bottom + height / 2;
+  var hu = hh + 1;
+  var hd = hh - 1;
   
   return union([
     CSG.cube({
-      corner1: [left, pcb.yConnMax, topp - thickness],
-      corner2: [right, pcb.h, topp],
+      corner1: [left, pcb.yConnMax, topp - floorThickness],
+      corner2: [right, yMax, topp],
     }),
 
     CSG.cube({
-      corner1: [left, pcb.yConn, topp - thickness],
-      corner2: [ll + half, pcb.yConnMax + 0.1, topp],
+      corner1: [left, pcb.yConn, topp - floorThickness],
+      corner2: [ll + halfWall, pcb.yConnMax + 0.1, topp],
     }),
 
     CSG.cube({
-      corner1: [rr - half, pcb.yConn, topp - thickness],
+      corner1: [rr - halfWall, pcb.yConn, topp - floorThickness],
       corner2: [right, pcb.yConnMax + 0.1, topp],
     }),
     
     CSG.cube({
-      corner1: [left, pcb.yConn, hh+half],
-      corner2: [left + thickness, pcb.h, topp],
+      corner1: [left, pcb.yConn, hu],
+      corner2: [left + wallThickness, yMax, topp],
     }),
     CSG.cube({
-      corner1: [left+half, pcb.yConn+half, hh-half],
-      corner2: [left + thickness, pcb.h, topp],
+      corner1: [left + halfWall, pcb.yConn + halfWall, hd],
+      corner2: [left + wallThickness, yMax, topp],
     }),
     
     CSG.cube({
-      corner1: [right - thickness, pcb.yConn, hh+half],
-      corner2: [right, pcb.h, topp],
+      corner1: [right - wallThickness, pcb.yConn, hu],
+      corner2: [right, yMax, topp],
     }),
     CSG.cube({
-      corner1: [right - thickness, pcb.yConn+half, hh-half],
-      corner2: [right - half, pcb.h, topp],
+      corner1: [right - wallThickness, pcb.yConn+halfWall, hd],
+      corner2: [right - halfWall, yMax, topp],
     }),
 
     CSG.cube({
       corner1: [ll, pcb.yConnMax, 2],
-      corner2: [rr, pcb.yConnMax + thickness, topp],
+      corner2: [rr, pcb.yConnMax + wallThickness, topp],
     }),
 
     CSG.cube({
-      corner1: [left, pcb.yConn, hh+half],
-      corner2: [ll+half, pcb.yConn + thickness, topp],
+      corner1: [left, pcb.yConn, hu],
+      corner2: [ll+halfWall, pcb.yConn + wallThickness, topp],
     }),
     CSG.cube({
-      corner1: [left+half, pcb.yConn + half, hh-half],
-      corner2: [ll+half, pcb.yConn + thickness, topp],
+      corner1: [left+halfWall, pcb.yConn + halfWall, hd],
+      corner2: [ll+halfWall, pcb.yConn + wallThickness, topp],
     }),
 
     CSG.cube({
-      corner1: [rr-half, pcb.yConn, hh+half],
-      corner2: [right, pcb.yConn + thickness, topp],
+      corner1: [rr-halfWall, pcb.yConn, hu],
+      corner2: [right, pcb.yConn + wallThickness, topp],
     }),
     CSG.cube({
-      corner1: [rr-half, pcb.yConn + half, hh-half],
-      corner2: [right-half, pcb.yConn + thickness, topp],
-    }),
-    
-    CSG.cube({
-      corner1: [ll-half, pcb.yConn+half, hh],
-      corner2: [ll+half, pcb.yConnMax + thickness, topp],
-    }),
-    CSG.cube({
-      corner1: [ll-half, pcb.yConn+thickness+half, 2],
-      corner2: [ll+half, pcb.yConnMax + thickness, topp],
+      corner1: [rr-halfWall, pcb.yConn + halfWall, hd],
+      corner2: [right-halfWall, pcb.yConn + wallThickness, topp],
     }),
     
     CSG.cube({
-      corner1: [rr-half, pcb.yConn+half, hh],
-      corner2: [rr+half, pcb.yConnMax + thickness, topp],
+      corner1: [ll-halfWall, pcb.yConn+halfWall, hd],
+      corner2: [ll+halfWall, pcb.yConnMax + wallThickness, topp],
     }),
     CSG.cube({
-      corner1: [rr-half, pcb.yConn+thickness+half, 2],
-      corner2: [rr+half, pcb.yConnMax + thickness, topp],
+      corner1: [ll-halfWall, pcb.yConn + 1.5 * wallThickness, 2],
+      corner2: [ll+halfWall, pcb.yConnMax + wallThickness, topp],
+    }),
+    
+    CSG.cube({
+      corner1: [rr-halfWall, pcb.yConn+halfWall, hd],
+      corner2: [rr+halfWall, pcb.yConnMax + wallThickness, topp],
+    }),
+    CSG.cube({
+      corner1: [rr-halfWall, pcb.yConn + 1.5 * wallThickness, 2],
+      corner2: [rr+halfWall, pcb.yConnMax + wallThickness, topp],
     }),
     
     topSupports.model({hh:topp-1}).translate([0, 0, topp]),
@@ -895,13 +1034,15 @@ function frame(params) {
     left: usb.x - 101.6 / 2,
     bottom: usb.z - 25.4 / 2,
     width: 101.6,
-    thickness: 1,
+    wallThickness: 1,
+    floorThickness: 1,
     barwidth: 6,
     wallheight: 8,
   });
   var left = params.left;
   var bottom = params.bottom;
-  var d = params.thickness;
+  var floorThickness = params.floorThickness;
+  var wallThickness = params.wallThickness;
   var width = params.width;
   var height = params.height;
   var w = params.barwidth;
@@ -911,69 +1052,71 @@ function frame(params) {
   
   var bottomMountY = pcb.h - mounts.bottom.ys[1];
   var sideMountY = pcb.h - mounts.side.ys[1];
+  var minY = min(bottomMountY, sideMountY);
   
   return union([
-    bottomBar([left+r, pcb.h], [left+r, bottomMountY], w, d),
-    bottomBar([left+r, bottomMountY], [pcb.x1, pcb.y1], w, d),
-    bottomBar([pcb.x1, pcb.y1], [right-r, pcb.h-r], w, d),
-    bottomBar([pcb.x1, pcb.y1], [pcb.x1, pcb.h], w, d),
+    bottomBar([left+r, pcb.h], [left+r, bottomMountY], w, floorThickness),
+    bottomBar([left+r, bottomMountY], [pcb.x1, pcb.y1], w, floorThickness),
+    bottomBar([pcb.x1, pcb.y1], [right-r, pcb.h-r], w, floorThickness),
+    bottomBar([pcb.x1, pcb.y1], [pcb.x1, pcb.h], w, floorThickness),
     
-    bottomBar([right-r, pcb.h], [right-r, bottomMountY], w, d),
-    bottomBar([right-r, bottomMountY], [pcb.x2, pcb.y1], w, d),
-    bottomBar([pcb.x2, pcb.y1], [left+r, pcb.h-r], w, d),
-    bottomBar([pcb.x2, pcb.y1], [pcb.x2, pcb.h], w, d),
+    bottomBar([right-r, pcb.h], [right-r, bottomMountY], w, floorThickness),
+    bottomBar([right-r, bottomMountY], [pcb.x2, pcb.y1], w, floorThickness),
+    bottomBar([pcb.x2, pcb.y1], [left+r, pcb.h-r], w, floorThickness),
+    bottomBar([pcb.x2, pcb.y1], [pcb.x2, pcb.h], w, floorThickness),
     
     CSG.cylinder({
       start: [left+r, bottomMountY, 0],
-      end: [left+r, bottomMountY, d],
+      end: [left+r, bottomMountY, floorThickness],
       radius: r,
     }),
 
     CSG.cylinder({
       start: [right-r, bottomMountY, 0],
-      end: [right-r, bottomMountY, d],
+      end: [right-r, bottomMountY, floorThickness],
       radius: r,
     }),
 
     CSG.cylinder({
       start: [pcb.x1, pcb.y1, 0],
-      end: [pcb.x1, pcb.y1, d],
+      end: [pcb.x1, pcb.y1, floorThickness],
       radius: r,
     }),
 
     CSG.cylinder({
       start: [pcb.x2, pcb.y1, 0],
-      end: [pcb.x2, pcb.y1, d],
+      end: [pcb.x2, pcb.y1, floorThickness],
       radius: r,
     }),
     
     CSG.cube({
       corner1: [left, sideMountY-h/2, 0],
-      corner2: [left+d, pcb.h, h/2],
+      corner2: [left+wallThickness, pcb.h, h/2],
     }),
     CSG.cube({
       corner1: [left, sideMountY, 0],
-      corner2: [left+d, pcb.h, h],
+      corner2: [left+wallThickness, pcb.h, h],
     }),
     CSG.cylinder({
       start: [left, sideMountY, h/2],
-      end: [left+d, sideMountY, h/2],
+      end: [left+wallThickness, sideMountY, h/2],
       radius: h/2,
     }),
 
     CSG.cube({
-      corner1: [right-d, sideMountY-h/2, 0],
+      corner1: [right-wallThickness, sideMountY-h/2, 0],
       corner2: [right, pcb.h, h/2],
     }),
     CSG.cube({
-      corner1: [right-d, sideMountY, 0],
+      corner1: [right-wallThickness, sideMountY, 0],
       corner2: [right, pcb.h, h],
     }),
     CSG.cylinder({
-      start: [right-d, sideMountY, h/2],
+      start: [right-wallThickness, sideMountY, h/2],
       end: [right, sideMountY, h/2],
       radius: h/2,
     }),
+    mounts.model(left, right, minY),
   ])
       .subtract(mounts.holes(left, right))
       .translate([0, 0, bottom])
@@ -997,9 +1140,45 @@ function placeholder(params) {
   ]);
 }
 
+presets = {
+  none: {
+    "caption": "None (manual entry)",
+    "params": {},
+  },
+  gotekbox: {
+    "caption": "Gotek-compatible box",
+    "params": {
+      "shape": "BOX",
+      "displayXOffset": 0,
+      "width": 101.6,
+      "height": 25.4,
+      "faceplateThickness": 2.5,
+      "xOffset": 0,
+      "zOffset": 0,
+      "shroudDepth": 0,
+    },
+  },
+};
+
+presetNames = [
+  'none', 'gotekbox',
+];
+presetCaptions = [];
+for (var i = 0; i < presetNames.length; i++) {
+  presetCaptions[i] = presets[presetNames[i]].caption;
+}
+
 function getParameterDefinitions() {
   return [
-    // {name:'debug', type:'checkbox', checked:1,},
+    //{name:'debug', type:'checkbox', checked:0},
+    {
+      name: 'preset',
+      type: 'choice',
+      values: presetNames,
+      captions: presetCaptions,
+      caption: 'Preset:',
+      initial: presetNames[0],
+    },
     {
       name: 'shape', 
       type: 'choice', 
@@ -1016,64 +1195,40 @@ function getParameterDefinitions() {
       caption: 'Display:',
       initial: 'OLED',
     },
-    { name: 'displayXOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "Display X offset:" },
+    { name: 'displayXOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "Display X offset (mm):" },
     { name: 'nLeds', type: 'int', initial:1, min:1, max:2, caption: "LEDs:"},
     { name: 'nButtons', type: 'int', initial:3, min:2, max:3, caption: "Buttons:"},
-    { name: 'width', type: 'float', initial: 101.6, min:80.0, max:160.0, step:0.05, caption: "Bay Width:" },
-    { name: 'height', type: 'float', initial: 25.4, min:12.0, max:60.0, step:0.05, caption: "Bay Height:" },
-    { name: 'faceplateThickness', type: 'float', initial:2.5, min:0.0, max:5.0, step:0.05, caption: "Faceplate thickness:"},
-    { name: 'thickness', type: 'float', initial:1.0, min:0.0, max:5.0, step:0.05, caption: "Material thickness:"},
-    { name: 'xOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "X offset from center:" },
-    { name: 'zOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "Z offset from center:" },
-    { name: 'extra', type: 'float', intitial: 0.2, min:0.0, max:1.0, step:0.05, caption: "Extra space:"},
+    { name: 'width', type: 'float', initial: 101.6, min:80.0, max:160.0, step:0.05, caption: "Bay Width (mm):" },
+    { name: 'height', type: 'float', initial: 25.4, min:12.0, max:60.0, step:0.05, caption: "Bay Height (mm):" },
+    { name: 'faceplateThickness', type: 'float', initial:2.5, min:0.0, max:5.0, step:0.05, caption: "Faceplate thickness (mm):"},
+    { name: 'shroudDepth', type: 'float', initial:0, min:0.0, max:5.0, step:0.05, caption: "Shroud depth (mm):"},
+    { name: 'wallThickness', type: 'float', initial:2, min:0.0, max:5.0, step:0.05, caption: "Wall thickness (mm):"},
+    { name: 'floorThickness', type: 'float', initial:5, min:0.0, max:5.0, step:0.05, caption: "Floor/Ceiling thickness (mm):"},
+    { name: 'shieldThickness', type: 'float', initial:0.5, min:0.0, max:5.0, step:0.05, caption: "Display shield thickness (mm):"},
+    { name: 'holderThickness', type: 'float', initial:0.5, min:0.0, max:5.0, step:0.05, caption: "Display holder thickness (mm):"},
+    { name: 'xOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "X offset from center (mm):" },
+    { name: 'zOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "Z offset from center (mm):" },
+    { name: 'extra', type: 'float', intitial: 0.2, min:0.0, max:1.0, step:0.05, caption: "Extra space (mm):"},
     { name: 'showBoard', type: 'checkbox', checked:0, caption: 'Show board:' }
   ];
 }
 
-function main(args) {
-  if (args.debug) {
-    return debugShape();
-  }
-
-  var shape = args.shape;
-  var displayType = args.display;
-  var width = args.width;
-  var height = args.height;
-  var xOffset = args.xOffset;
-  var zOffset = args.zOffset;
-  var left = usb.x - width/2 - xOffset;
-  var bottom = usb.z - height/2 - zOffset;
-  var nLeds = args.nLeds;
-  var nButtons = args.nButtons;
-  var extra = args.extra;
-  var showBoard = args.showBoard;
-  var thickness = args.thickness;
-  var faceplateThickness = args.faceplateThickness;
-  var displayXOffset = args.displayXOffset;
-    
-  var display = oled;
-  if (displayType == '3LED') {
-    display = threeDigitLed;
-  }
-
-  var params = {
-    width:width,
-    left:left,
-    height:height,
-    bottom:bottom,
-    extra:extra,
-    faceplateThickness:faceplateThickness,
-    holderThickness:thickness,
-    shroudDepth: 2,
-    nButtons: nButtons,
-    nLeds: nLeds,
-    thickness: thickness,
-    display:display,
-    displayXOffset: displayXOffset,
-  };
+function render(params) {
+  debug("Rendering with params " + JSON.stringify(params));
   
+  var shape = params.shape;
+  var width = params.width;
+  var height = params.height;
+  var left = params.left;
+  var bottom = params.bottom;
   var right = left + width;
   var topp = bottom + height;
+  var wallThickness = params.wallThickness;
+  var shroudDepth = params.shroudDepth;
+  var floorThickness = params.floorThickness;
+  var shieldThickness = params.shieldThickness;
+  var showBoard = params.showBoard;
+  
   var parts = [];
   if (shape.includes('BOX')) {
     // Trim any part of the faceplace that would interfere with the box or the lid.
@@ -1081,8 +1236,8 @@ function main(args) {
       corner1: [left-10, -10, bottom-10],
       corner2: [right+10, pcb.h+10, topp+10],
     }).subtract(CSG.cube({
-      corner1: [left+thickness, 0, bottom-thickness],
-      corner2: [right-thickness, pcb.h+10, topp-thickness],
+      corner1: [left+wallThickness, 0, bottom-floorThickness],
+      corner2: [right-wallThickness, pcb.h+10, topp-floorThickness],
     })).subtract(CSG.cube({
       corner1: [left, pcb.h, bottom],
       corner2: [right, pcb.h+10, topp],
@@ -1112,18 +1267,104 @@ function main(args) {
   return part.translate([-cx, -cy, 0]);
 }
 
+function main(args) {
+  var preset = args.preset;
+  var presetArgs = presets[preset].params;
+  
+  // overwrite the UI value with the preset ones
+  Object.keys(presetArgs).forEach(function(key) {
+    debug("replacing value for '" + key + "' with new value '" + presetArgs[key] + "'");
+    args[key] = presetArgs[key];
+  });
+  
+  var shape = args.shape;
+  var displayType = args.display;
+  var width = args.width;
+  var height = args.height;
+  var xOffset = args.xOffset;
+  var zOffset = args.zOffset;
+  var left = usb.x - width/2 - xOffset;
+  var bottom = usb.z - height/2 - zOffset;
+  var nLeds = args.nLeds;
+  var nButtons = args.nButtons;
+  var extra = args.extra;
+  var showBoard = args.showBoard;
+  var faceplateThickness = args.faceplateThickness;
+  var wallThickness = args.wallThickness;
+  var shroudDepth = args.shroudDepth;
+  var floorThickness = args.floorThickness;
+  var shieldThickness = args.shieldThickness;
+  var holderThickness = args.holderThickness;
+  var displayXOffset = args.displayXOffset;
+    
+  var display = oled;
+  if (displayType == '3LED') {
+    display = threeDigitLed;
+  }
+
+  var params = {
+    debug:args.debug,
+    preset:preset,
+    shape:shape,
+    width:width,
+    left:left,
+    height:height,
+    bottom:bottom,
+    extra:extra,
+    faceplateThickness:faceplateThickness,
+    wallThickness:wallThickness,
+    floorThickness:floorThickness,
+    shieldThickness:shieldThickness,
+    holderThickness:holderThickness,    
+    shroudDepth: shroudDepth,
+    nButtons: nButtons,
+    nLeds: nLeds,
+    display:display,
+    displayXOffset: displayXOffset,
+    showBoard: showBoard,
+  };
+  
+  if (args.debug) {
+    return debugShape(params);
+  } else {
+    return render(params);
+  }
+}
+
 function debugDisplay(display) {
   var space = 5;
   var params = {
     extra:0.15,
     bottom:-space/2,
   }
-  return CSG.cube({
+  result = CSG.cube({
     corner1: [-space/2,-2.5, -space/2],
     corner2: [display.w+space, 0, display.h+space],
   }).subtract(display.hole(params)).union(display.holder(params)).translate([-display.w/2, -1.25, space/2]);
+  result = result.intersection(CSG.cube({
+    corner1: [-60, -60, 9],
+    corner2: [60, 60, 15],
+  })).lieFlat();
+  return result;
 }
 
-function debugShape() {
-  return debugDisplay(threeDigitLed);
+function debugMounts(params) {
+  return mounts.model(params.left, params.left + params.width, -50);
+}
+
+function debugShape(params) {
+  // return debugDisplay(threeDigitLed);
+  return debugMounts(params);
+  
+  result = render(params);
+  bounds = result.getBounds();
+  result = result.intersect(CSG.cube({
+    corner1: [-100, -100, 9],
+    corner2: [100,100, 60],
+  }))
+  .subtract(CSG.cube({corner1:[-40, -40, -40], corner2:[40, 40, 40]}))
+  .translate([0, 0, -9])
+  .union(CSG.cube({corner1:[bounds[0].x, bounds[0].y, 0], corner2:[bounds[1].x, bounds[0].y + 2, 1]}))
+  ;
+  return result;
 }
