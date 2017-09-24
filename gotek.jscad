@@ -1202,7 +1202,7 @@ function getParameterDefinitions() {
     { name: 'height', type: 'float', initial: 25.4, min:12.0, max:60.0, step:0.05, caption: "Bay Height (mm):" },
     { name: 'faceplateThickness', type: 'float', initial:2.5, min:0.0, max:5.0, step:0.05, caption: "Faceplate thickness (mm):"},
     { name: 'shroudDepth', type: 'float', initial:0, min:0.0, max:5.0, step:0.05, caption: "Shroud depth (mm):"},
-    { name: 'bezel', type:'checkbox', checked:1, caption:'Bezel around faceplate:'},
+    { name: 'bezel', type:'checkbox', checked:0, caption:'Bezel around faceplate:'},
     { name: 'bezelShape', type:'text', initial:'[[0.4,0], [1,0.7]]', caption:'Bezel shape:'},
     { name: 'bezelSize', type:'text', initial:'{"l":1, "r":1, "t":1, "b":1}', caption:'Bezel size (mm):'},
     { name: 'wallThickness', type: 'float', initial:1, min:0.0, max:5.0, step:0.05, caption: "Wall thickness (mm):"},
