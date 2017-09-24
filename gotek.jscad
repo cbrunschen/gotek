@@ -1202,8 +1202,11 @@ function getParameterDefinitions() {
     { name: 'height', type: 'float', initial: 25.4, min:12.0, max:60.0, step:0.05, caption: "Bay Height (mm):" },
     { name: 'faceplateThickness', type: 'float', initial:2.5, min:0.0, max:5.0, step:0.05, caption: "Faceplate thickness (mm):"},
     { name: 'shroudDepth', type: 'float', initial:0, min:0.0, max:5.0, step:0.05, caption: "Shroud depth (mm):"},
-    { name: 'wallThickness', type: 'float', initial:2, min:0.0, max:5.0, step:0.05, caption: "Wall thickness (mm):"},
-    { name: 'floorThickness', type: 'float', initial:5, min:0.0, max:5.0, step:0.05, caption: "Floor/Ceiling thickness (mm):"},
+    { name: 'bezel', type:'checkbox', checked:1, caption:'Bezel around faceplate:'},
+    { name: 'bezelShape', type:'text', initial:'[[0.4,0], [1,0.7]]', caption:'Bezel shape:'},
+    { name: 'bezelSize', type:'text', initial:'{"l":1, "r":1, "t":1, "b":1}', caption:'Bezel size (mm):'},
+    { name: 'wallThickness', type: 'float', initial:1, min:0.0, max:5.0, step:0.05, caption: "Wall thickness (mm):"},
+    { name: 'floorThickness', type: 'float', initial:1, min:0.0, max:5.0, step:0.05, caption: "Floor/Ceiling thickness (mm):"},
     { name: 'shieldThickness', type: 'float', initial:0.5, min:0.0, max:5.0, step:0.05, caption: "Display shield thickness (mm):"},
     { name: 'holderThickness', type: 'float', initial:0.5, min:0.0, max:5.0, step:0.05, caption: "Display holder thickness (mm):"},
     { name: 'xOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "X offset from center (mm):" },
@@ -1224,12 +1227,17 @@ function render(params) {
   var right = left + width;
   var topp = bottom + height;
   var wallThickness = params.wallThickness;
+  var faceplateThickness = params.faceplateThickness;
   var shroudDepth = params.shroudDepth;
   var floorThickness = params.floorThickness;
   var shieldThickness = params.shieldThickness;
   var showBoard = params.showBoard;
   
+  var addBezel = params.bezel;
+  var raise = 0;
+  
   var parts = [];
+    
   if (shape.includes('BOX')) {
     // Trim any part of the faceplace that would interfere with the box or the lid.
     outsideBox = CSG.cube({
@@ -1259,12 +1267,118 @@ function render(params) {
   if (showBoard) {
     parts.push(placeholder(params).setColor([1, 1, 0, 0.5]));
   }
+  
+  if (addBezel) {
+    console.log("bezel shape = " + params.bezelShape);
+    var bezelShape;
+    var bezelPath;
+    var bezelProto;
+    try {
+        bezelShape = JSON.parse(params.bezelShape);
+    } catch(e) {
+      // ignore
+    }
+    if (bezelShape !== undefined && Array.isArray(bezelShape)) {
+      bezelShape = [[0, 0]].concat(bezelShape).concat([[1,1], [0,1], [0,0]]);
+      bezelPath = CAG.fromPoints(bezelShape);
+      // the prototype is within the cube from orgin to [1, 1, 1].
+      bezelProto = bezelPath.extrude({offset:[0, 0, 1]});
+    }
+  
+    console.log("bezel size = " + params.bezelSize);
+    var bezelSize = {l:0, r:0, t:0, b:0};
+    try {
+      bezelSize = JSON.parse(params.bezelSize);
+      console.log("parsed bezel size = " + JSON.stringify(bezelSize));
+    } catch (e) {
+      console.log(e);
+    }
+  
+    if (bezelSize !== undefined && bezelProto !== undefined) {
+      // make a prototype for the lower-right corner
+      cornerProto = bezelProto.translate([0, 0, -1]).intersect(bezelProto.rotateY(90));
+
+      // Let's presume we have the 4 bezel sizes. 
+      var bezel = [];
+      
+      // let's start looking at the front of the drive, with [0, 0, 0] at the bottom-right as we look at the drive
+     
+      if (bezelSize.r > 0) {
+        // add the bezel to the right-from-the-front
+        bezel.push(
+          bezelProto.scale([bezelSize.r, faceplateThickness, height])
+        );
+      }
+
+      if (bezelSize.l > 0) {
+        // add the bezel to the left-from-the-front
+        bezel.push(
+          bezelProto
+              .scale([bezelSize.l, faceplateThickness, height])
+              .mirroredX()
+              .translate([-width, 0, 0])
+        );
+      }
+
+      if (bezelSize.b > 0) {
+        // add the bezel to the bottom
+        bezel.push(
+          bezelProto
+              .scale([bezelSize.b, faceplateThickness, width])
+              .rotateY(90)
+              .translate([-width, 0, 0])
+        );
+        raise = bezelSize.b;
+      }
+
+      if (bezelSize.t > 0) {
+        // add the bezel to the top
+        bezel.push(
+          bezelProto
+              .scale([bezelSize.t, faceplateThickness, width])
+              .rotateY(-90)
+              .translate([0, 0, height])
+        );
+      }
+      
+      if (bezelSize.r > 0 && bezelSize.b > 0) {
+        // bottom-right corner
+        bezel.push(
+          cornerProto.scale([bezelSize.r, faceplateThickness, bezelSize.b])
+        );
+      }
+
+      if (bezelSize.r > 0 && bezelSize.t > 0) {
+        // top-right corner
+        bezel.push(
+          cornerProto.scale([bezelSize.r, faceplateThickness, -bezelSize.t]).translate([0, 0, height])
+        );
+      }
+
+      if (bezelSize.l > 0 && bezelSize.t > 0) {
+        // top-left corner
+        bezel.push(
+          cornerProto.scale([-bezelSize.l, faceplateThickness, -bezelSize.t]).translate([-width, 0, height])
+        );
+      }
+
+      if (bezelSize.l > 0 && bezelSize.b > 0) {
+        // bottom-left corner
+        bezel.push(
+          cornerProto.scale([-bezelSize.l, faceplateThickness, bezelSize.b]).translate([-width, 0, 0])
+        );
+      }
+      
+      parts.push(union(bezel).rotateZ(180).translate([left, pcb.h + faceplateThickness, bottom]));
+    }
+  }
+  
   var part = union(parts).translate([-pcb.w1/2, -pcb.h/2, -bottom]);
   var bounds = part.getBounds();
   
   cx = (bounds[0].x + bounds[1].x) / 2;
   cy = (bounds[0].y + bounds[1].y) / 2;
-  return part.translate([-cx, -cy, 0]);
+  return part.translate([-cx, -cy, raise]);
 }
 
 function main(args) {
@@ -1312,6 +1426,9 @@ function main(args) {
     bottom:bottom,
     extra:extra,
     faceplateThickness:faceplateThickness,
+    bezel:args.bezel,
+    bezelShape:args.bezelShape,
+    bezelSize:args.bezelSize,
     wallThickness:wallThickness,
     floorThickness:floorThickness,
     shieldThickness:shieldThickness,
