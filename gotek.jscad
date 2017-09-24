@@ -1216,6 +1216,128 @@ function getParameterDefinitions() {
   ];
 }
 
+function addBezel(parts, params) {
+  debug("adding bezel with params " + JSON.stringify(params));
+  debug("bezel shape = " + params.bezelShape);
+
+  var width = params.width;
+  var height = params.height;
+  var left = params.left;
+  var bottom = params.bottom;
+  var faceplateThickness = params.faceplateThickness;
+
+  var delta = {dz:0, dx:0};
+  debug("addBezel initial delta = " +JSON.stringify(delta));
+  var bezelShape;
+  var bezelPath;
+  var bezelProto;
+
+  try {
+      bezelShape = JSON.parse(params.bezelShape);
+  } catch(e) {
+    return delta;
+  }
+  if (bezelShape !== undefined && Array.isArray(bezelShape)) {
+    bezelShape = [[0, 0]].concat(bezelShape).concat([[1,1], [0,1], [0,0]]);
+    bezelPath = CAG.fromPoints(bezelShape);
+    // the prototype is within the cube from orgin to [1, 1, 1].
+    bezelProto = bezelPath.extrude({offset:[0, 0, 1]});
+  }
+
+  console.log("bezel size = " + params.bezelSize);
+  var bezelSize = {l:0, r:0, t:0, b:0};
+  try {
+    bezelSize = JSON.parse(params.bezelSize);
+    console.log("parsed bezel size = " + JSON.stringify(bezelSize));
+  } catch (e) {
+    return delta;
+  }
+
+  if (bezelSize === undefined || bezelProto === undefined) {
+    return delta;
+  }
+  
+  // make a prototype for the lower-right corner
+  cornerProto = bezelProto.translate([0, 0, -1]).intersect(bezelProto.rotateY(90));
+
+  // Let's presume we have the 4 bezel sizes. 
+  var bezel = [];
+  
+  // let's start looking at the front of the drive, with [0, 0, 0] at the bottom-right as we look at the drive
+ 
+  if (bezelSize.r > 0) {
+    // add the bezel to the right-from-the-front
+    bezel.push(
+      bezelProto.scale([bezelSize.r, faceplateThickness, height])
+    );
+    delta.dx = bezelSize.r;
+  }
+
+  if (bezelSize.l > 0) {
+    // add the bezel to the left-from-the-front
+    bezel.push(
+      bezelProto
+          .scale([bezelSize.l, faceplateThickness, height])
+          .mirroredX()
+          .translate([-width, 0, 0])
+    );
+  }
+
+  if (bezelSize.b > 0) {
+    // add the bezel to the bottom
+    bezel.push(
+      bezelProto
+          .scale([bezelSize.b, faceplateThickness, width])
+          .rotateY(90)
+          .translate([-width, 0, 0])
+    );
+    delta.dz = bezelSize.b;
+  }
+
+  if (bezelSize.t > 0) {
+    // add the bezel to the top
+    bezel.push(
+      bezelProto
+          .scale([bezelSize.t, faceplateThickness, width])
+          .rotateY(-90)
+          .translate([0, 0, height])
+    );
+  }
+  
+  if (bezelSize.r > 0 && bezelSize.b > 0) {
+    // bottom-right corner
+    bezel.push(
+      cornerProto.scale([bezelSize.r, faceplateThickness, bezelSize.b])
+    );
+  }
+
+  if (bezelSize.r > 0 && bezelSize.t > 0) {
+    // top-right corner
+    bezel.push(
+      cornerProto.scale([bezelSize.r, faceplateThickness, -bezelSize.t]).translate([0, 0, height])
+    );
+  }
+
+  if (bezelSize.l > 0 && bezelSize.t > 0) {
+    // top-left corner
+    bezel.push(
+      cornerProto.scale([-bezelSize.l, faceplateThickness, -bezelSize.t]).translate([-width, 0, height])
+    );
+  }
+
+  if (bezelSize.l > 0 && bezelSize.b > 0) {
+    // bottom-left corner
+    bezel.push(
+      cornerProto.scale([-bezelSize.l, faceplateThickness, bezelSize.b]).translate([-width, 0, 0])
+    );
+  }
+  
+  parts.push(union(bezel).rotateZ(180).translate([left, pcb.h + faceplateThickness, bottom]));
+
+  debug("addBezel final delta = " +JSON.stringify(delta));
+  return delta;
+}
+
 function render(params) {
   debug("Rendering with params " + JSON.stringify(params));
   
@@ -1233,12 +1355,13 @@ function render(params) {
   var shieldThickness = params.shieldThickness;
   var showBoard = params.showBoard;
   
-  var addBezel = params.bezel;
-  var raise = 0;
-  
   var parts = [];
+  var delta = {dx:0, dz:0};  
     
   if (shape.includes('BOX')) {
+    if (params.bezel) {
+      delta = addBezel(parts, params);
+    }
     // Trim any part of the faceplace that would interfere with the box or the lid.
     outsideBox = CSG.cube({
       corner1: [left-10, -10, bottom-10],
@@ -1255,9 +1378,12 @@ function render(params) {
     parts.push(box.lower.model(params));
   }
   if (shape.includes('LID')) {
-    parts.push(box.upper.model(params).rotateY(180).translate([2*left-2, 0, bottom + bottom + height]));
+    parts.push(box.upper.model(params).rotateY(180).translate([2*left-2-delta.dz, 0, bottom + bottom + height - delta.dz]));
   }
   if (shape == 'FRAME') {
+    if (params.bezel) {
+      delta = addBezel(parts, params);
+    }
     parts.push(faceplate.model(params)),
     parts.push(frame(params));
   } else {
@@ -1268,117 +1394,13 @@ function render(params) {
     parts.push(placeholder(params).setColor([1, 1, 0, 0.5]));
   }
   
-  if (addBezel) {
-    console.log("bezel shape = " + params.bezelShape);
-    var bezelShape;
-    var bezelPath;
-    var bezelProto;
-    try {
-        bezelShape = JSON.parse(params.bezelShape);
-    } catch(e) {
-      // ignore
-    }
-    if (bezelShape !== undefined && Array.isArray(bezelShape)) {
-      bezelShape = [[0, 0]].concat(bezelShape).concat([[1,1], [0,1], [0,0]]);
-      bezelPath = CAG.fromPoints(bezelShape);
-      // the prototype is within the cube from orgin to [1, 1, 1].
-      bezelProto = bezelPath.extrude({offset:[0, 0, 1]});
-    }
-  
-    console.log("bezel size = " + params.bezelSize);
-    var bezelSize = {l:0, r:0, t:0, b:0};
-    try {
-      bezelSize = JSON.parse(params.bezelSize);
-      console.log("parsed bezel size = " + JSON.stringify(bezelSize));
-    } catch (e) {
-      console.log(e);
-    }
-  
-    if (bezelSize !== undefined && bezelProto !== undefined) {
-      // make a prototype for the lower-right corner
-      cornerProto = bezelProto.translate([0, 0, -1]).intersect(bezelProto.rotateY(90));
-
-      // Let's presume we have the 4 bezel sizes. 
-      var bezel = [];
-      
-      // let's start looking at the front of the drive, with [0, 0, 0] at the bottom-right as we look at the drive
-     
-      if (bezelSize.r > 0) {
-        // add the bezel to the right-from-the-front
-        bezel.push(
-          bezelProto.scale([bezelSize.r, faceplateThickness, height])
-        );
-      }
-
-      if (bezelSize.l > 0) {
-        // add the bezel to the left-from-the-front
-        bezel.push(
-          bezelProto
-              .scale([bezelSize.l, faceplateThickness, height])
-              .mirroredX()
-              .translate([-width, 0, 0])
-        );
-      }
-
-      if (bezelSize.b > 0) {
-        // add the bezel to the bottom
-        bezel.push(
-          bezelProto
-              .scale([bezelSize.b, faceplateThickness, width])
-              .rotateY(90)
-              .translate([-width, 0, 0])
-        );
-        raise = bezelSize.b;
-      }
-
-      if (bezelSize.t > 0) {
-        // add the bezel to the top
-        bezel.push(
-          bezelProto
-              .scale([bezelSize.t, faceplateThickness, width])
-              .rotateY(-90)
-              .translate([0, 0, height])
-        );
-      }
-      
-      if (bezelSize.r > 0 && bezelSize.b > 0) {
-        // bottom-right corner
-        bezel.push(
-          cornerProto.scale([bezelSize.r, faceplateThickness, bezelSize.b])
-        );
-      }
-
-      if (bezelSize.r > 0 && bezelSize.t > 0) {
-        // top-right corner
-        bezel.push(
-          cornerProto.scale([bezelSize.r, faceplateThickness, -bezelSize.t]).translate([0, 0, height])
-        );
-      }
-
-      if (bezelSize.l > 0 && bezelSize.t > 0) {
-        // top-left corner
-        bezel.push(
-          cornerProto.scale([-bezelSize.l, faceplateThickness, -bezelSize.t]).translate([-width, 0, height])
-        );
-      }
-
-      if (bezelSize.l > 0 && bezelSize.b > 0) {
-        // bottom-left corner
-        bezel.push(
-          cornerProto.scale([-bezelSize.l, faceplateThickness, bezelSize.b]).translate([-width, 0, 0])
-        );
-      }
-      
-      parts.push(union(bezel).rotateZ(180).translate([left, pcb.h + faceplateThickness, bottom]));
-    }
-  }
   
   var part = union(parts).translate([-pcb.w1/2, -pcb.h/2, -bottom]);
   var bounds = part.getBounds();
   
   cx = (bounds[0].x + bounds[1].x) / 2;
   cy = (bounds[0].y + bounds[1].y) / 2;
-  return part.translate([-cx, -cy, raise]);
+  return part.translate([-cx, -cy, delta.dz]);
 }
 
 function main(args) {
