@@ -48,7 +48,7 @@ pcb.y2 = pcb.y1 + 21.25;
 pcb.y3 = pcb.y2 + 50;
 
 function debug(s) {
-  console.log(s);
+  // console.log(s);
 }
 
 pcb.board = function() {
@@ -872,7 +872,7 @@ box.lower.model = function(params) {
     rr = right - 14;
     hu = bottom + 14;
     hd = bottom + 12;
-    yy = pcb.h - 120;
+    yy = pcb.h - 120.5;  // 120 measured; add an extra half millimiter for safety;s sake
     shroudDepth = 0;
   }
   
@@ -1330,11 +1330,11 @@ function addBezel(parts, params) {
     bezelProto = bezelPath.extrude({offset:[0, 0, 1]});
   }
 
-  console.log("bezel size = " + params.bezelSize);
+  debug("bezel size = " + params.bezelSize);
   var bezelSize = {l:0, r:0, t:0, b:0};
   try {
     bezelSize = JSON.parse(params.bezelSize);
-    console.log("parsed bezel size = " + JSON.stringify(bezelSize));
+    debug("parsed bezel size = " + JSON.stringify(bezelSize));
   } catch (e) {
     return delta;
   }
