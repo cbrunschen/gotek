@@ -74,6 +74,16 @@ pcb.hConn = 7;
 pcb.yConn = -pcb.hConn;
 pcb.yConnMax = 16;
 
+pcb.notch = {};
+pcb.notch.x = 33;
+pcb.notch.w = 8;
+pcb.notch.y = pcb.yConn - 10;
+pcb.notch.h = 0 - pcb.notch.y;
+pcb.notch.z = -1.5;
+pcb.notch.d = pcb.d + 2 * 2.54;
+pcb.notch.p1 = [pcb.notch.x, pcb.notch.y, pcb.notch.z];
+pcb.notch.p2 = [pcb.notch.x + pcb.notch.w, pcb.notch.y + pcb.notch.h, pcb.notch.z + pcb.notch.d];
+
 pcb.connectors = function() {
   debug("connectors()");
   return union([
@@ -885,7 +895,10 @@ box.lower.model = function(params) {
     CSG.cube({
       corner1: [left, yy, bottom],
       corner2: [right, yy + wallThickness, 0],
-    }),
+    }).subtract(CSG.cube({
+      corner1: pcb.notch.p1,
+      corner2: pcb.notch.p2,
+    })),
 
     CSG.cube({
       corner1: [left, yy, bottom],
@@ -916,7 +929,7 @@ box.lower.model = function(params) {
         .union(mounts.bottom.model(left, right, yy).translate([0, 0, bottom]))
         .subtract(mounts.bottom.holes(left, right, yy).translate([0, 0, bottom]));
   }
-  
+    
   return b;
 }
 
@@ -1467,8 +1480,7 @@ function render(params) {
   
   if (showBoard) {
     parts.push(placeholder(params).setColor([1, 1, 0, 0.5]));
-  }
-  
+  }  
   
   var part = union(parts).translate([-pcb.w1/2, -pcb.h/2, -bottom]);
   var bounds = part.getBounds();
