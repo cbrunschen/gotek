@@ -583,6 +583,110 @@ threeDigitLed.holder = function(params) {
   ]);
 }
 
+function makeFaceplate(params) {
+  debug("making bezeled face plate with params " + JSON.stringify(params));
+  debug("bevel proto = " + JSON.stringify(params.bevelProto));
+    
+  var width = params.width;
+  var height = params.height;
+  var s = params.bezelSize;
+  var bevelSize = params.bevelSize;
+  var bevelProto = params.bevelProto;
+  var faceplateThickness = params.faceplateThickness;
+  
+  var inner = CSG.cube({
+    corner1:[bevelSize.r, 0, bevelSize.b],
+    corner2:[width + s.l + s.r - bevelSize.l, faceplateThickness, height + s.b + s.t - bevelSize.t],
+  });
+  
+  if (bevelProto === undefined || !bevelProto) {
+    return inner;
+  }
+    
+  // make a prototype for the lower-right corner
+  cornerProto = bevelProto.translate([0, 0, -1]).intersect(bevelProto.rotateY(90));
+
+  // Let's presume we have the 4 bezel sizes. 
+  var bezel = [];
+  
+  // let's start looking at the front of the drive, with [0, 0, 0] at the bottom-right as we look at the drive
+  
+  var bh = height + s.t + s.b - bevelSize.t - bevelSize.b;
+  var bw = width + s.l + s.r - bevelSize.l - bevelSize.r;
+ 
+  if (bevelSize.r > 0) {
+    // add the bezel to the right-from-the-front
+    bezel.push(
+      bevelProto.scale([bevelSize.r, faceplateThickness, bh]).translate([-bevelSize.r, 0, bevelSize.b])
+    );
+  }
+
+  if (bevelSize.l > 0) {
+    // add the bezel to the left-from-the-front
+    bezel.push(
+      bevelProto
+          .scale([bevelSize.l, faceplateThickness, bh])
+          .mirroredX()
+          .translate([bevelSize.l-s.l-s.r-width, 0, bevelSize.b])
+    );
+  }
+
+  if (bevelSize.b > 0) {
+    // add the bezel to the bottom
+    bezel.push(
+      bevelProto
+          .scale([bevelSize.b, faceplateThickness, bw])
+          .rotateY(90)
+          .translate([bevelSize.l-s.l-s.r-width, 0, bevelSize.b])
+    );
+  }
+
+  if (bevelSize.t > 0) {
+    // add the bezel to the top
+    bezel.push(
+      bevelProto
+          .scale([bevelSize.t, faceplateThickness, bw])
+          .rotateY(-90)
+          .translate([-bevelSize.r, 0, height+s.b+s.t-bevelSize.t])
+    );
+  }
+  
+  if (bevelSize.r > 0 && bevelSize.b > 0) {
+    // bottom-right corner
+    bezel.push(
+      cornerProto.scale([bevelSize.r, faceplateThickness, bevelSize.b]).translate([-bevelSize.r, 0, bevelSize.b])
+    );
+  }
+
+  if (bevelSize.r > 0 && bevelSize.t > 0) {
+    // top-right corner
+    bezel.push(
+      cornerProto.scale([bevelSize.r, faceplateThickness, -bevelSize.t]).translate([-bevelSize.r, 0, height+s.b+s.t-bevelSize.t])
+    );
+  }
+
+  if (bevelSize.l > 0 && bevelSize.t > 0) {
+    // top-left corner
+    bezel.push(
+      cornerProto.scale([-bevelSize.l, faceplateThickness, -bevelSize.t]).translate([bevelSize.l-s.l-s.r-width, 0, height+s.b+s.t-bevelSize.t])
+    );
+  }
+
+  if (bevelSize.l > 0 && bevelSize.b > 0) {
+    // bottom-left corner
+    bezel.push(
+      cornerProto.scale([-bevelSize.l, faceplateThickness, bevelSize.b]).translate([bevelSize.l-s.l-s.r-width, 0, bevelSize.b])
+    );
+  }
+  
+  if (bezel.length > 0) {
+    edges = union(bezel).rotateZ(180).translate([0, faceplateThickness, 0])
+    return inner.union(edges);
+  } else {
+    return inner;
+  }
+}
+
 faceplate = {};
 faceplate.model = function(params) {
   params = paramsWithDefaults(params, {
@@ -612,13 +716,16 @@ faceplate.model = function(params) {
   var shieldThickness = params.shieldThickness;
   var display = params.display;
   var displayXOffset = params.displayXOffset;
+  var bezelSize = params.bezelSize;
   
   if (params.debug !== undefined && params.debug) {
     debug("params.debug is " + params.debug);
     return cube({size:[width, 1.2, height]}).translate([left, pcb.h, bottom]);
   }
   
-  plate = cube({size:[width, faceplateThickness, height]}).translate([left, pcb.h, bottom]);
+  plate = makeFaceplate(params).translate([left - bezelSize.r, pcb.h, bottom - bezelSize.b]);
+  origPlate = plate;
+  
   holes = union([
     buttons.holes({n:nButtons, extra:extra}),
     leds.holes({n:nLeds, extra:extra}),
@@ -636,7 +743,7 @@ faceplate.model = function(params) {
   plate = plate.union(
       display.holder({holderThickness:holderThickness, shieldThickness:shieldThickness, extra:extra, bottom:bottom-displayZ})
           .translate([displayX, pcb.h+faceplateThickness, displayZ]));
-  return plate;
+  return plate.intersect(origPlate);
 }
 
 shroud = {};
@@ -1145,8 +1252,12 @@ function frame(params) {
   } else {
     if (sideMounts) {
       f = union([f,
-        bottomBar([left, sideMountY], [pcb.x1, pcb.y1], w, floorThickness),
-        bottomBar([right, sideMountY], [pcb.x2, pcb.y1], w, floorThickness),
+        bottomBar([left, sideMountY], [pcb.x1, pcb.y1], w, floorThickness)
+            .union(CSG.cylinder({start:[left, sideMountY, 0], end:[left, sideMountY, floorThickness], radius:r}))
+            .subtract(CSG.cube({corner1:[left, sideMountY-w, -1], corner2:[left-w, sideMountY+w, floorThickness+1]})),
+        bottomBar([right, sideMountY], [pcb.x2, pcb.y1], w, floorThickness)
+            .union(CSG.cylinder({start:[right, sideMountY, 0], end:[right, sideMountY, floorThickness], radius:r}))
+            .subtract(CSG.cube({corner1:[right, sideMountY-w, -1], corner2:[right+w, sideMountY+w, floorThickness+1]})),
 
         CSG.cylinder({
           start: [left, sideMountY, 0],
@@ -1287,8 +1398,10 @@ function getParameterDefinitions() {
     { name: 'faceplateThickness', type: 'float', initial:2.5, min:0.0, max:5.0, step:0.05, caption: "Faceplate thickness (mm):"},
     { name: 'shroudDepth', type: 'float', initial:0, min:0.0, max:5.0, step:0.05, caption: "Shroud depth (mm):"},
     { name: 'bezel', type:'checkbox', checked:0, caption:'Bezel around faceplate:'},
-    { name: 'bezelShape', type:'text', initial:'[[0.4,0], [1,0.7]]', caption:'Bezel shape:'},
-    { name: 'bezelSize', type:'text', initial:'{"l":1, "r":1, "t":1, "b":1}', caption:'Bezel size (mm):'},
+    { name: 'bezelSize', type:'text', initial:'{"l":1, "r":1, "t":1, "b":1}', caption:'Bezel size on each side (mm):'},
+    { name: 'bevel', type:'checkbox', checked:0, caption:'Bevel faceplate edges:'},
+    { name: 'bevelShape', type:'text', initial:'[[0.4,0], [1,0.7]]', caption:'Bevel shape (within unit square):'},
+    { name: 'bevelSize', type:'text', initial:'{"l":1, "r":1, "t":1, "b":1}', caption:'Bevel width along each edge (mm):'},
     { name: 'wallThickness', type: 'float', initial:1, min:0.0, max:5.0, step:0.05, caption: "Wall thickness (mm):"},
     { name: 'floorThickness', type: 'float', initial:1, min:0.0, max:5.0, step:0.05, caption: "Floor/Ceiling thickness (mm):"},
     { name: 'shieldThickness', type: 'float', initial:0.5, min:0.0, max:5.0, step:0.05, caption: "Display shield thickness (mm):"},
@@ -1301,129 +1414,7 @@ function getParameterDefinitions() {
     { name: 'showBoard', type: 'checkbox', checked:0, caption: 'Show board:' }
   ];
 }
-
-function addBezel(parts, params) {
-  debug("adding bezel with params " + JSON.stringify(params));
-  debug("bezel shape = " + params.bezelShape);
-
-  var width = params.width;
-  var height = params.height;
-  var left = params.left;
-  var bottom = params.bottom;
-  var faceplateThickness = params.faceplateThickness;
-
-  var delta = {dz:0, dx:0};
-  debug("addBezel initial delta = " +JSON.stringify(delta));
-  var bezelShape;
-  var bezelPath;
-  var bezelProto;
-
-  try {
-      bezelShape = JSON.parse(params.bezelShape);
-  } catch(e) {
-    return delta;
-  }
-  if (bezelShape !== undefined && Array.isArray(bezelShape)) {
-    bezelShape = [[0, 0]].concat(bezelShape).concat([[1,1], [0,1], [0,0]]);
-    bezelPath = CAG.fromPoints(bezelShape);
-    // the prototype is within the cube from orgin to [1, 1, 1].
-    bezelProto = bezelPath.extrude({offset:[0, 0, 1]});
-  }
-
-  debug("bezel size = " + params.bezelSize);
-  var bezelSize = {l:0, r:0, t:0, b:0};
-  try {
-    bezelSize = JSON.parse(params.bezelSize);
-    debug("parsed bezel size = " + JSON.stringify(bezelSize));
-  } catch (e) {
-    return delta;
-  }
-
-  if (bezelSize === undefined || bezelProto === undefined) {
-    return delta;
-  }
-  
-  // make a prototype for the lower-right corner
-  cornerProto = bezelProto.translate([0, 0, -1]).intersect(bezelProto.rotateY(90));
-
-  // Let's presume we have the 4 bezel sizes. 
-  var bezel = [];
-  
-  // let's start looking at the front of the drive, with [0, 0, 0] at the bottom-right as we look at the drive
  
-  if (bezelSize.r > 0) {
-    // add the bezel to the right-from-the-front
-    bezel.push(
-      bezelProto.scale([bezelSize.r, faceplateThickness, height])
-    );
-    delta.dx = bezelSize.r;
-  }
-
-  if (bezelSize.l > 0) {
-    // add the bezel to the left-from-the-front
-    bezel.push(
-      bezelProto
-          .scale([bezelSize.l, faceplateThickness, height])
-          .mirroredX()
-          .translate([-width, 0, 0])
-    );
-  }
-
-  if (bezelSize.b > 0) {
-    // add the bezel to the bottom
-    bezel.push(
-      bezelProto
-          .scale([bezelSize.b, faceplateThickness, width])
-          .rotateY(90)
-          .translate([-width, 0, 0])
-    );
-    delta.dz = bezelSize.b;
-  }
-
-  if (bezelSize.t > 0) {
-    // add the bezel to the top
-    bezel.push(
-      bezelProto
-          .scale([bezelSize.t, faceplateThickness, width])
-          .rotateY(-90)
-          .translate([0, 0, height])
-    );
-  }
-  
-  if (bezelSize.r > 0 && bezelSize.b > 0) {
-    // bottom-right corner
-    bezel.push(
-      cornerProto.scale([bezelSize.r, faceplateThickness, bezelSize.b])
-    );
-  }
-
-  if (bezelSize.r > 0 && bezelSize.t > 0) {
-    // top-right corner
-    bezel.push(
-      cornerProto.scale([bezelSize.r, faceplateThickness, -bezelSize.t]).translate([0, 0, height])
-    );
-  }
-
-  if (bezelSize.l > 0 && bezelSize.t > 0) {
-    // top-left corner
-    bezel.push(
-      cornerProto.scale([-bezelSize.l, faceplateThickness, -bezelSize.t]).translate([-width, 0, height])
-    );
-  }
-
-  if (bezelSize.l > 0 && bezelSize.b > 0) {
-    // bottom-left corner
-    bezel.push(
-      cornerProto.scale([-bezelSize.l, faceplateThickness, bezelSize.b]).translate([-width, 0, 0])
-    );
-  }
-  
-  parts.push(union(bezel).rotateZ(180).translate([left, pcb.h + faceplateThickness, bottom]));
-
-  debug("addBezel final delta = " +JSON.stringify(delta));
-  return delta;
-}
-
 function render(params) {
   debug("Rendering with params " + JSON.stringify(params));
   
@@ -1443,34 +1434,29 @@ function render(params) {
   var sideMounts = params.sideMounts;
   var showBoard = params.showBoard;
   
+  var bezel = params.bezel;
+  var bezelSize = params.bezelSize;
+  var bevel = params.bevel;
+  var bevelProto = params.bevelProto;
+  
   var parts = [];
-  var delta = {dx:0, dz:0};  
+  var delta = {dx:0, dz:0}; 
+  var bezelDelta = {dx:bezelSize.r, dz:bezelSize.b};
     
   if (shape.includes('BOX')) {
-    if (params.bezel) {
-      delta = addBezel(parts, params);
+    if (bezel) {
+      delta = bezelDelta;
     }
-    // Trim any part of the faceplace that would interfere with the box or the lid.
-    outsideBox = CSG.cube({
-      corner1: [left-10, -10, bottom-10],
-      corner2: [right+10, pcb.h+10, topp+10],
-    }).subtract(CSG.cube({
-      corner1: [left+wallThickness, 0, bottom-floorThickness],
-      corner2: [right-wallThickness, pcb.h+10, topp-floorThickness],
-    })).subtract(CSG.cube({
-      corner1: [left, pcb.h, bottom],
-      corner2: [right, pcb.h+10, topp],
-    }));
 
-    parts.push(faceplate.model(params).subtract(outsideBox)),
+    parts.push(faceplate.model(params)),
     parts.push(box.lower.model(params));
   }
   if (shape.includes('LID')) {
     parts.push(box.upper.model(params).rotateY(180).translate([2*left-2-delta.dz, 0, bottom + bottom + height - delta.dz]));
   }
   if (shape == 'FRAME') {
-    if (params.bezel) {
-      delta = addBezel(parts, params);
+    if (bezel) {
+      delta = bezelDelta;
     }
     parts.push(faceplate.model(params)),
     parts.push(frame(params));
@@ -1490,7 +1476,12 @@ function render(params) {
   return part.translate([-cx, -cy, delta.dz]);
 }
 
+function toBool(s) {
+  return !!s;
+}
+
 function main(args) {
+  debug("Calling main() with args " + JSON.stringify(args));
   var preset = args.preset;
   var presetArgs = presets[preset].params;
   
@@ -1519,14 +1510,59 @@ function main(args) {
   var shieldThickness = args.shieldThickness;
   var holderThickness = args.holderThickness;
   var displayXOffset = args.displayXOffset;
-  var bottomMounts = args.bottomMounts;
-  var sideMounts = args.sideMounts;
+  var bottomMounts = toBool(args.bottomMounts);
+  var sideMounts = toBool(args.sideMounts);
     
   var display = oled;
   if (displayType == '3LED') {
     display = threeDigitLed;
   }
+  
+  var bezel = toBool(args.bezel);
+  var bezelSize = {l:0, r:0, t:0, b:0};
+  if (bezel) {
+    try {
+      debug("bezel size = " + args.bezelSize);
+      bezelSize = JSON.parse(args.bezelSize);
+      debug("parsed bezel size = " + JSON.stringify(bezelSize));
+    } catch (e) {
+      debug("failed to parse bezel size = " + args.bezelSize);
+      bezel = false;
+    }
+  }
+  
+  var bevel = toBool(args.bevel);
+  var bevelSize = {l:0, r:0, t:0, b:0};
+  var bevelShape;
+  var bevelPath;
+  var bevelProto;
+  
+  if (bevel) {
+    try {
+      debug("bevel shape = " + args.bevelShape);
+      bevelShape = JSON.parse(args.bevelShape);
+      debug("parsed bevel shape = " + JSON.stringify(bevelShape));
+    } catch(e) {
+      bevel = false;
+    }
+  
+    if (bevel && bevelShape !== undefined && Array.isArray(bevelShape)) {
+      bevelShape = [[0, 0]].concat(bevelShape).concat([[1,1], [0,1], [0,0]]);
+      bevelPath = CAG.fromPoints(bevelShape);
+      // the prototype is within the unit cube from orgin to [1, 1, 1].
+      bevelProto = bevelPath.extrude({offset:[0, 0, 1]});
+    }
 
+    debug("bevel size = " + args.bevelSize);
+    try {
+      bevelSize = JSON.parse(args.bevelSize);
+      debug("parsed bevel size = " + JSON.stringify(bevelSize));
+    } catch (e) {
+      debug("failed to parse bevel size " + argsargs.bevelSize);
+      bevel = false;
+    }
+  }
+  
   var params = {
     debug:args.debug,
     preset:preset,
@@ -1537,9 +1573,11 @@ function main(args) {
     bottom:bottom,
     extra:extra,
     faceplateThickness:faceplateThickness,
-    bezel:args.bezel,
-    bezelShape:args.bezelShape,
-    bezelSize:args.bezelSize,
+    bezel:bezel,
+    bezelSize:bezelSize,
+    bevel:bevel,
+    bevelSize:bevelSize,
+    bevelProto:bevelProto,
     wallThickness:wallThickness,
     floorThickness:floorThickness,
     shieldThickness:shieldThickness,
