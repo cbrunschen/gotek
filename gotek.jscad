@@ -48,7 +48,7 @@ pcb.y2 = pcb.y1 + 21.25;
 pcb.y3 = pcb.y2 + 50;
 
 function debug(s) {
-  console.log(s);
+  // console.log(s);
 }
 
 pcb.board = function() {
