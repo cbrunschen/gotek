@@ -1235,10 +1235,14 @@ function frame(params) {
   var minY = min(bottomMountY, sideMountY);
   
   var f = union([
-    bottomBar([pcb.x1, pcb.y1], [right-r, pcb.h], w, floorThickness),
+    bottomBar([pcb.x1, pcb.y1], [right-r, pcb.h], w, floorThickness)
+        .union(CSG.cylinder({start:[right-r, pcb.h, 0], end:[right-r, pcb.h, floorThickness], radius:r}))
+        .subtract(CSG.cube({corner1:[right-2*w, pcb.h, 0], corner2:[right, pcb.h+w, floorThickness]})),
     bottomBar([pcb.x1, pcb.y1], [pcb.x1, pcb.h], w, floorThickness),
     
-    bottomBar([pcb.x2, pcb.y1], [left+r, pcb.h], w, floorThickness),
+    bottomBar([pcb.x2, pcb.y1], [left+r, pcb.h], w, floorThickness)
+        .union(CSG.cylinder({start:[left+r, pcb.h, 0], end:[left+r, pcb.h, floorThickness], radius:r}))
+        .subtract(CSG.cube({corner1:[left+2*w, pcb.h, 0], corner2:[left, pcb.h+w, floorThickness]})),
     bottomBar([pcb.x2, pcb.y1], [pcb.x2, pcb.h], w, floorThickness),
 
     CSG.cylinder({
