@@ -232,15 +232,18 @@ topSupports.holes = function(params) {
   ]);
 }
 
-var buttons = {};
-buttons.rHole = 1.9 + 0.2;
-buttons.r = 1.6;
-buttons.z = pcb.d + 4;
+var controls = {};
+controls.rButtonHole = 1.9 + 0.2;
+controls.rButton = 1.6;
+controls.z = pcb.d + 4;
 
-buttons.xSpacing = 7.5;
-buttons.x1 = 1 + buttons.xSpacing / 2;
-buttons.x2 = buttons.x1 + buttons.xSpacing;
-buttons.x0 = buttons.x1 - buttons.xSpacing;
+controls.xButtonSpacing = 7.5;
+controls.xButton1 = 1 + controls.xButtonSpacing / 2;
+controls.xButton2 = controls.xButton1 + controls.xButtonSpacing;
+controls.xButton0 = controls.xButton1 - controls.xButtonSpacing;
+controls.xEncoder = controls.xButton1 - 13.5;
+controls.rEncoder = 3;
+controls.rEncoderHole = 3.5;
 
 function horizontalCylinder(x, y, z, r, d) {
     debug("horizontalCylinder()");
@@ -249,65 +252,96 @@ function horizontalCylinder(x, y, z, r, d) {
         .translate([x, y + d/2, z]);
 }
 
-buttons.button = function(params) {
+controls.button = function(params) {
   params = paramsWithDefaults(params, {
     x: 0,
   });
-  debug("buttons.button(" + JSON.stringify(params) + ")");
+  debug("controls.button(" + JSON.stringify(params) + ")");
   var x = params.x;
   
   return union([
-    horizontalCylinder(x, 0, buttons.z, buttons.r, 5),
+    horizontalCylinder(x, 0, controls.z, controls.rButton, 5),
     cube({size: [6, 6, 6]}).translate([x-3, -6, pcb.d]),    
   ]);
 }
 
-buttons.buttonHole = function(params) {
+controls.buttonHole = function(params) {
   params = paramsWithDefaults(params, {
     x: 0,
     extra: 0,
   });
-  debug("buttons.buttonHole(" + JSON.stringify(params) + ")");
+  debug("controls.buttonHole(" + JSON.stringify(params) + ")");
   var x = params.x;
   var extra = params.extra;
   
-  return horizontalCylinder(x, -1, buttons.z, buttons.rHole+extra, 6);
+  return horizontalCylinder(x, -1, controls.z, controls.rButtonHole+extra, 6);
 }
 
-buttons.buttons = function(perButton, params) {
+controls.buttons = function(perButton, params) {
   params = paramsWithDefaults(params, {
     extra: 0,
-    n: 3
+    controls: '3b',
   });
+  debug("controls.buttons(" + JSON.stringify(params) + ")");
   var extra = params.extra;
-  var n = params.n;
+  var pControls = params.controls;
+  var n = parseInt(pControls.substr(0, pControls.indexOf('b')));
   
-  debug("buttons.buttons(" + JSON.stringify(params) + ")");
+  debug("controls.buttons(" + JSON.stringify(params) + ")");
   var result = [];
   if (n == 3) {
-    result.push(perButton({x:buttons.x0, extra:extra}));
+    result.push(perButton({x:controls.xButton0, extra:extra}));
   }
-  result.push(perButton({x:buttons.x1, extra:extra}));
-  result.push(perButton({x:buttons.x2, extra:extra}));
+  result.push(perButton({x:controls.xButton1, extra:extra}));
+  result.push(perButton({x:controls.xButton2, extra:extra}));
   
   return union(result).translate([0, pcb.h, 0]);
 }
 
-
-buttons.model = function(params) {
-  return buttons.buttons(buttons.button, params);
+controls.encoder = function(params) {
+  debug("controls.encoder(" + JSON.stringify(params) + ")");
+  
+  return union([
+    horizontalCylinder(controls.xEncoder, pcb.h, controls.z, controls.rEncoder, 12),
+    cube({size: [8, 8, 8]}).translate([controls.xEncoder-4, pcb.h-8, pcb.d]),    
+  ]);
 }
 
-buttons.holes = function(params) {
-  return buttons.buttons(buttons.buttonHole, params);
+controls.encoderHole = function(params) {
+  params = paramsWithDefaults(params, {
+    extra: 0,
+  });
+  debug("controls.encoderHole(" + JSON.stringify(params) + ")");
+  var extra = params.extra;
+  
+  return horizontalCylinder(controls.xEncoder, -1, controls.z, controls.rEncoderHole+extra, 16).translate([0, pcb.h, 0]);
+}
+
+controls.model = function(params) {
+  var pControls = params.controls;
+  var result = controls.buttons(controls.button, params);
+  if (pControls.indexOf('e') >= 0) {
+    result = result.union(controls.encoder(params));
+  }  
+  return result;
+}
+
+controls.holes = function(params) {
+  var pControls = params.controls;
+  var result = controls.buttons(controls.buttonHole, params);
+  if (pControls.indexOf('e') >= 0) {
+    debug("adding encoder hole");
+    result = result.union(controls.encoderHole(params));
+  }  
+  return result;
 }
 
 var leds = {};
-leds.z = buttons.z + 7.5;
+leds.z = controls.z + 7.5;
 leds.r = 1.5;
 leds.rHole = 1.55;
-leds.x1 = buttons.x1;
-leds.x2 = buttons.x2;
+leds.x1 = controls.xButton1;
+leds.x2 = controls.xButton2;
 
 leds.led = function(params) {
   params = paramsWithDefaults(params, {
@@ -696,7 +730,7 @@ faceplate.model = function(params) {
     height: 25.4,
     faceplateThickness: 2.5,
     nLeds: 2,
-    nButtons: 3,
+    controls: '3b',
     extra: 0.15,
     holderThickness: 1,
     shieldThickness: 0.5,
@@ -710,7 +744,7 @@ faceplate.model = function(params) {
   var width = params.width;
   var height = params.height;
   var nLeds = params.nLeds;
-  var nButtons = params.nButtons;
+  var pControls = params.controls;
   var extra = params.extra;
   var holderThickness = params.holderThickness;
   var shieldThickness = params.shieldThickness;
@@ -727,7 +761,7 @@ faceplate.model = function(params) {
   origPlate = plate;
   
   holes = union([
-    buttons.holes({n:nButtons, extra:extra}),
+    controls.holes({controls:pControls, extra:extra}),
     leds.holes({n:nLeds, extra:extra}),
     usb.hole({extra:extra}),
   ]);
@@ -1322,18 +1356,19 @@ function frame(params) {
 function placeholder(params) {
   params = paramsWithDefaults(params, {
     nLeds: 2,
-    nButtons: 3,
+    controls: '3b',
   });
   var nLeds = params.nLeds;
-  var nButtons = params.nButtons;
+  var pControls = params.controls;
 
   return union([
     pcb.model(),
-    buttons.model({n:nButtons}),
+    controls.model({controls:pControls}),
     leds.model({n:nLeds}),
     usb.model(),
   ]);
 }
+
 
 presets = {
   none: {
@@ -1392,7 +1427,14 @@ function getParameterDefinitions() {
     },
     { name: 'displayXOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "Display X offset (mm):" },
     { name: 'nLeds', type: 'int', initial:1, min:1, max:2, caption: "LEDs:"},
-    { name: 'nButtons', type: 'int', initial:3, min:2, max:3, caption: "Buttons:"},
+    { 
+      name: 'controls', 
+      type: 'choice', 
+      values: ['2b', '2be', '3b'], 
+      captions: ["2 Buttons", "2 Buttons + Encoder", "3 Buttons"],
+      initial: '3b', 
+      caption: "Controls:"
+    },
     { name: 'width', type: 'float', initial: 101.6, min:80.0, max:160.0, step:0.05, caption: "Bay Width (mm):" },
     { name: 'height', type: 'float', initial: 25.4, min:12.0, max:60.0, step:0.05, caption: "Bay Height (mm):" },
     { name: 'faceplateThickness', type: 'float', initial:2.5, min:0.0, max:5.0, step:0.05, caption: "Faceplate thickness (mm):"},
@@ -1500,7 +1542,7 @@ function main(args) {
   var left = usb.x - width/2 - xOffset;
   var bottom = usb.z - height/2 - zOffset;
   var nLeds = args.nLeds;
-  var nButtons = args.nButtons;
+  var pControls = args.controls;
   var extra = args.extra;
   var showBoard = args.showBoard;
   var faceplateThickness = args.faceplateThickness;
@@ -1583,7 +1625,7 @@ function main(args) {
     shieldThickness:shieldThickness,
     holderThickness:holderThickness,    
     shroudDepth: shroudDepth,
-    nButtons: nButtons,
+    controls: pControls,
     nLeds: nLeds,
     display:display,
     displayXOffset: displayXOffset,
