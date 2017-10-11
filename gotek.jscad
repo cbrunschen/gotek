@@ -303,7 +303,7 @@ controls.encoder = function(params) {
   
   return union([
     horizontalCylinder(controls.xEncoder, pcb.h, controls.z, controls.rEncoder, 12),
-    cube({size: [8, 8, 8]}).translate([controls.xEncoder-4, pcb.h-8, pcb.d]),    
+    cube({size: [12.5, 6.5, 13.4]}).translate([controls.xEncoder-6.25, pcb.h-6.5, controls.z-6.7]),    
   ]);
 }
 
@@ -758,8 +758,12 @@ faceplate.model = function(params) {
   }
   
   plate = makeFaceplate(params).translate([left - bezelSize.r, pcb.h, bottom - bezelSize.b]);
-  origPlate = plate;
   
+  volume = plate.union(CSG.cube({
+    corner1: [left, 0, bottom],
+    corner2: [left+width, pcb.h, bottom+height],
+  }));
+    
   holes = union([
     controls.holes({controls:pControls, extra:extra}),
     leds.holes({n:nLeds, extra:extra}),
@@ -777,7 +781,7 @@ faceplate.model = function(params) {
   plate = plate.union(
       display.holder({holderThickness:holderThickness, shieldThickness:shieldThickness, extra:extra, bottom:bottom-displayZ})
           .translate([displayX, pcb.h+faceplateThickness, displayZ]));
-  return plate.intersect(origPlate);
+  return plate.intersect(volume);
 }
 
 shroud = {};
