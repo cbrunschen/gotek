@@ -48,7 +48,7 @@ pcb.y2 = pcb.y1 + 21.25;
 pcb.y3 = pcb.y2 + 50;
 
 function debug(s) {
-  // console.log(s);
+  console.log(s);
 }
 
 pcb.board = function() {
@@ -245,11 +245,30 @@ controls.xEncoder = controls.xButton1 - 13.5;
 controls.rEncoder = 3;
 controls.rEncoderHole = 3.5;
 
+controls.wEncoder = 12.5;
+controls.hEncoder = 13.4;
+controls.dEncoder = 6.5;
+
 function horizontalCylinder(x, y, z, r, d) {
-    debug("horizontalCylinder()");
+    debug("horizontalCylinder("+x+", "+y+", "+z+", "+r+", "+d+")");
     return cylinder({r:r, h:d, center:true})
         .rotateX(-90)
         .translate([x, y + d/2, z]);
+}
+
+controls.xEncoder = function(params) {
+  params = paramsWithDefaults(params, {
+    controls: '3b',
+  });
+  debug("controls.xEncoder(" + JSON.stringify(params) + ")");
+  var pControls = params.controls;
+  var n = parseInt(pControls.substr(0, pControls.indexOf('b')));
+  
+  if (n == 3) {
+    return controls.xButton0 - ((controls.xButtonSpacing + controls.wEncoder) / 2);
+  } else {
+    return controls.xButton1 - 13.5;
+  }
 }
 
 controls.button = function(params) {
@@ -300,10 +319,11 @@ controls.buttons = function(perButton, params) {
 
 controls.encoder = function(params) {
   debug("controls.encoder(" + JSON.stringify(params) + ")");
-  
+
+  let x = controls.xEncoder(params);
   return union([
-    horizontalCylinder(controls.xEncoder, pcb.h, controls.z, controls.rEncoder, 12),
-    cube({size: [12.5, 6.5, 13.4]}).translate([controls.xEncoder-6.25, pcb.h-6.5, controls.z-6.7]),    
+    horizontalCylinder(x, pcb.h, controls.z, controls.rEncoder, 12),
+    cube({size: [12.5, 6.5, 13.4]}).translate([x-6.25, pcb.h-6.5, controls.z-6.7]),    
   ]);
 }
 
@@ -314,7 +334,7 @@ controls.encoderHole = function(params) {
   debug("controls.encoderHole(" + JSON.stringify(params) + ")");
   var extra = params.extra;
   
-  return horizontalCylinder(controls.xEncoder, -1, controls.z, controls.rEncoderHole+extra, 16).translate([0, pcb.h, 0]);
+  return horizontalCylinder(controls.xEncoder(params), -1, controls.z, controls.rEncoderHole+extra, 16).translate([0, pcb.h, 0]);
 }
 
 controls.model = function(params) {
@@ -1438,8 +1458,8 @@ function getParameterDefinitions() {
     { 
       name: 'controls', 
       type: 'choice', 
-      values: ['2b', '2be', '3b'], 
-      captions: ["2 Buttons", "2 Buttons + Encoder", "3 Buttons"],
+      values: ['2b', '2be', '3b', '3be'], 
+      captions: ["2 Buttons", "2 Buttons + Encoder", "3 Buttons", "3 Buttons + Encoder"],
       initial: '3b', 
       caption: "Controls:"
     },
