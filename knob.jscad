@@ -55,139 +55,179 @@ function paramsWithDefaults(params, defaults) {
 }
 
 function getParameterDefinitions() {
-  return [];
-  
   return [
-    //{name:'debug', type:'checkbox', checked:0},
     {
-      name: 'preset',
-      type: 'choice',
-      values: presetNames,
-      captions: presetCaptions,
-      caption: 'Preset:',
-      initial: presetNames[0],
+      name: 'nNotches',
+      type: 'int', 
+      initial:13, 
+      min:1, 
+      max:29, 
+      caption: "Notches:"
     },
-    {
-      name: 'shape', 
-      type: 'choice', 
-      values: ['BOX', 'BOX+LID', 'LID', 'FRAME'], 
-      captions: ['Box only', 'Box + Lid', 'Lid only', 'Frame'],
-      caption: 'Shape:',
-      initial: 'FRAME',
-    },
-    {
-      name: 'display', 
-      type: 'choice', 
-      values: ['OLED', '3LED'], 
-      captions: ['0.91" OLED', '3 digit LED'],
-      caption: 'Display:',
-      initial: 'OLED',
-    },
-    { name: 'displayXOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "Display X offset (mm):" },
-    { name: 'nLeds', type: 'int', initial:1, min:1, max:2, caption: "LEDs:"},
+    
     { 
-      name: 'controls', 
-      type: 'choice', 
-      values: ['2b', '2be', '3b', '3be'], 
-      captions: ["2 Buttons", "2 Buttons + Encoder", "3 Buttons", "3 Buttons + Encoder"],
-      initial: '3b', 
-      caption: "Controls:"
+      name: 'flattenedShaftLength', 
+      type: 'float', 
+      initial: 5.0, 
+      min: 1.0, 
+      max: 30.0, 
+      step: 0.05, 
+      caption: "Flattenet Shaft Length (mm):"
     },
-    { name: 'width', type: 'float', initial: 101.6, min:80.0, max:160.0, step:0.05, caption: "Bay Width (mm):" },
-    { name: 'height', type: 'float', initial: 25.4, min:12.0, max:60.0, step:0.05, caption: "Bay Height (mm):" },
-    { name: 'faceplateThickness', type: 'float', initial:2.5, min:0.0, max:5.0, step:0.05, caption: "Faceplate thickness (mm):"},
-    { name: 'shroudDepth', type: 'float', initial:0, min:0.0, max:5.0, step:0.05, caption: "Shroud depth (mm):"},
-    { name: 'bezel', type:'checkbox', checked:0, caption:'Bezel around faceplate:'},
-    { name: 'bezelSize', type:'text', initial:'{"l":1, "r":1, "t":1, "b":1}', caption:'Bezel size on each side (mm):'},
-    { name: 'bevel', type:'checkbox', checked:0, caption:'Bevel faceplate edges:'},
-    { name: 'bevelShape', type:'text', initial:'[[0.4,0], [1,0.7]]', caption:'Bevel shape (within unit square):'},
-    { name: 'bevelSize', type:'text', initial:'{"l":1, "r":1, "t":1, "b":1}', caption:'Bevel width along each edge (mm):'},
-    { name: 'wallThickness', type: 'float', initial:1, min:0.0, max:5.0, step:0.05, caption: "Wall thickness (mm):"},
-    { name: 'floorThickness', type: 'float', initial:1, min:0.0, max:5.0, step:0.05, caption: "Floor/Ceiling thickness (mm):"},
-    { name: 'shieldThickness', type: 'float', initial:0.5, min:0.0, max:5.0, step:0.05, caption: "Display shield thickness (mm):"},
-    { name: 'holderThickness', type: 'float', initial:0.5, min:0.0, max:5.0, step:0.05, caption: "Display holder thickness (mm):"},
-    { name: 'xOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "X offset from center (mm):" },
-    { name: 'zOffset', type: 'float', initial: 0, min:-20.0, max:20.0, step:0.05, caption: "Z offset from center (mm):" },
-    { name: 'extra', type: 'float', intitial: 0.2, min:0.0, max:1.0, step:0.05, caption: "Extra space (mm):"},
-    { name: 'bottomMounts', type:'checkbox', checked:1, caption:'Bottom mounting holes:'},
-    { name: 'sideMounts', type:'checkbox', checked:1, caption:'Side mounting holes:'},
-    { name: 'showBoard', type: 'checkbox', checked:0, caption: 'Show board:' }
+    
+    { 
+      name: 'baseHeight', 
+      type: 'float', 
+      initial: 4.5, 
+      min: 0.0, 
+      max: 15.0, 
+      step :0.05, 
+      caption: "Base height (mm):"
+    },
+    
+    {
+      name: 'resolution',
+      type: 'int', 
+      initial: 30, 
+      min: 12, 
+      max: 360, 
+      caption: "Resolution:"
+    },
+
+    { 
+      name: 'extra', 
+      type: 'float', 
+      initial: 0.1, 
+      min: 0.0, 
+      max: 0.3, 
+      step: 0.01, 
+      caption: "Extra (mm):"
+    },
+    
   ];
+  
 }
 
-function flatShaft(h, extra=0.2) {
+function flatShaft(params) {
+  params = paramsWithDefaults(params, {
+    h:5, 
+    resolution:60,
+    extra:0.2
+  });
+  debug("flatShaft params = " + JSON.stringify(params));
+  let h = params.h;
+  let extra = params.extra;
+  let resolution = params.resolution;
+  
   return CSG.cylinder({
     start:[0, 0, 0],
     end:[0, 0, h],
     radius:3+extra,
-    resolution:120,
+    resolution:resolution,
   }).subtract(CSG.cube({
     corner1:[-4, 1.5+extra, 0],
     corner2:[4, 4, h+1],
   }));
 }
 
-function notchedOutline(nNotches) {
-  let rn1 =  0.8 * Math.PI / (2 * nNotches);
-  
-  let outline = CAG.circle({
-    center:[0,0],
-    radius:1,
-    resolution:300,
-  });
-  
-  for (let i = 0; i < nNotches; i++) {
-      notch = CAG.circle({
-          center:[1,0],
-          radius:rn1,
-      }).rotateZ(360 * i / nNotches);
-      outline = outline.subtract(notch);
-  }
-  
-  return outline;
+function lerp(a, b, t) {
+  return (1.0-t) * a + t * b;
 }
 
-function notchedOutline2(nNotches, d=0.05) {
-  let d2 = d / 2;
+function toXY(r, angle) {
+  return [r*Math.cos(angle), r*Math.sin(angle)];
+}
+
+function norm(dx, dy) {
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+/*
+Old shape:
+     let startAngle = (2*Math.PI) * (i/nNotches);
+     let endAngle = (2*Math.PI) * ((i+1)/nNotches);
+     let a1 = lerp(startAngle, endAngle, 0.25);
+     
+     p = p.appendBezier([
+       toXY(r0, startAngle),
+       toXY(r0, a1),
+       toXY(r1, a1),
+     ], {resolution:60});
+     p = p.appendBezier([
+       toXY(r2, a1),
+       toXY(r2, endAngle),
+      toXY(r1, endAngle),
+     ], {resolution:60});
+*/
+
+function notchedOutline(params) {
+  params = paramsWithDefaults(params, {
+    nNotches: 13,
+    notchDepth: 0.05,
+    resolution: 60,
+  });
+  let nNotches = params.nNotches;
+  let d = params.notchDepth;
+  let resolution = params.resolution;
   
-  let r0 = 1 - d;
-  let r1 = 1 - d/2;
-  let r2 = 1;
+  let template = new CSG.Path2D([[0, 2]], /*closed=*/false);
+  template = template.appendBezier([
+    [1, 2],
+    [3, 1.6],
+    [3, 1]
+  ], {resolution:resolution}).appendBezier([
+    [3, 0.4],
+    [3.4, 0],
+    [4, 0]
+  ], {resolution:resolution}).appendBezier([
+    [4.6, 0],
+    [5, 0.4],
+    [5, 1]
+  ], {resolution:resolution}).appendBezier([
+    [5, 1.6],
+    [7, 2],
+    [8, 2]
+  ], {resolution:resolution});
+    
+  let th = 2;
+  let tw = 8;
   
-  function toXY(r, angle) {
-    return [r*Math.cos(angle), r*Math.sin(angle)];
-  }
-  
-  let p = new CSG.Path2D([toXY(r1, 0)], /*closed=*/false);
-  
-  function lerp(a, b, t) {
-    return (1.0-t) * a + t * b;
-  }
-  
+  let r1 = 1;
+  let r0 = r1 - d;  
+
+  let pp = new CSG.Path2D([toXY(r1, 0)], /*closed=*/false);
+    
   for (let i = 0; i < nNotches; i++) {
     let startAngle = (2*Math.PI) * (i/nNotches);
     let endAngle = (2*Math.PI) * ((i+1)/nNotches);
-    let a1 = lerp(startAngle, endAngle, 0.25);
     
-    p = p.appendBezier([
-      toXY(r0, startAngle),
-      toXY(r0, a1),
-      toXY(r1, a1),
-    ], {resolution:60});
-    p = p.appendBezier([
-      toXY(r2, a1),
-      toXY(r2, endAngle),
-      toXY(r1, endAngle),
-    ], {resolution:60});
+    for (let j = 0; j < template.points.length; j++) {
+      let p = template.points[j];
+      let a = p.x / tw;
+      let b = p.y / th;
+      pp = pp.appendPoint(toXY(lerp(r0, r1, b), lerp(startAngle, endAngle, a)));
+    }
   }
   
-  p = p.close();
+  pp = pp.close();
   
-  return p.innerToCAG();
+  return pp.innerToCAG();
 }
 
-function notchedCone(h, r1, r2, nNotches) {
-  let outline = notchedOutline2(nNotches, 0.1);
+function notchedCone(params) {
+  params = paramsWithDefaults(params, {
+    h:10, 
+    r1:8, 
+    r2:6, 
+    nNotches:13,
+    notchDepth:0.1,
+    resolution:60,
+  });
+  let r1 = params.r1;
+  let r2 = params.r2;
+  let h = params.h;
+  
+  let outline = notchedOutline(params);
   let dr = r2 - r1;
   
   let f = function(point, axis, normal) {
@@ -204,65 +244,105 @@ function notchedCone(h, r1, r2, nNotches) {
   return cs.followWith(f);
 }
 
-function inside(h0=2.5, r0=6.5, h1=2, r1=3.2, h2=5, extra=0.2) {
-  return union([
+function shell(params) {
+  params = paramsWithDefaults(params, {
+    h:10, 
+    r1:8.5, 
+    r2:6.5, 
+    nNotches:13, 
+    d:2,
+    resolution:60,
+  });
+  let h = params.h;
+  let r1 = params.r1;
+  let r2 = params.r2;
+  let nNotches = params.nNotches;
+  let d = params.d;
+  let resolution = params.resolution;
+  
+  return notchedCone({
+    h:h,
+    r1:r1,
+    r2:r2,
+    nNotches:nNotches,
+    resolution:resolution,
+  }).subtract(
     CSG.cylinder({
-      start:[0, 0, 0],
-      end:[0, 0, h0],
-      radius:r0+extra,
-      resolution:120,
-    }),
-    CSG.cylinder({
-      start:[0, 0, h0],
-      end:[0, 0, h0+h1],
-      radius:r1+extra,
-      resolution:120,
-    }),
-    flatShaft(h2, extra).translate([0, 0, h0+h1]),
-  ]);
+      start:[0,0,0],
+      end:[0,0,h-d],
+      radiusStart:r1-d,
+      radiusEnd:r2-d,
+      resolution:resolution,
+    })
+  )
 }
 
-function base(r0=7.5, h=3, r1=6, extra=0.2) {
-  return union([
-    new CSG.cylinder({
-      start:[0, 0, 0],
-      end:[0, 0, h],
-      radiusStart:r0+extra,
-      radiusEnd:r0+extra-0.5,
-      resolution:120,
-    }),
-    new CSG.cylinder({
-      start:[0, 0, h],
-      end:[0, 0, h+1.5],
-      radiusStart:r0+extra-0.5,
-      radiusEnd:r1-(r0-r1)+extra,
-      resolution:120,
-    }),
-  ]);
+function gripper(params) {
+  params = paramsWithDefaults(params, {
+    baseHeight: 2,
+    flatShaftLength: 5,
+    totalHeight: 10,
+    thickness: 0.5,
+    extra: 0.1,
+    resolution: 60,
+  });
+  let baseHeight = params.baseHeight;
+  let flatShaftLength = params.flatShaftLength;
+  let totalHeight = params.totalHeight;
+  let thickness = params.thickness;
+  let extra = params.extra;
+  let resolution = params.resolution;
   
-  let p = new CSG.Path2D([[0,0], [r0, 0]], /* closed = */ false);
-  p = p.appendBezier([
-    [r0, h], 
-    [(r0+r1)/2, h], 
-    [r1-h, 2*h]
-  ], {resolution:120});
-  p = p.appendPoints([[0, h]]);
-  p = p.close();
-  
-  return p.innerToCAG().rotateExtrude({resolution:120});
-}
-
-function outside(h0=3, r0=7.5, r01=7, h12=8, r1=5.5, r2=4, extra=0.2) {
-  let drh = (r1 - r2) / h12;
-  return union([
-    base(),
-    notchedCone(h0 + h12, r1 + h0 * drh, r2, 17),
-  ]);
-    
+  let shaft = flatShaft({
+    h: flatShaftLength,
+    extra:extra,
+  });
+  return CSG.cylinder({
+    start: [0, 0, baseHeight],
+    end: [0, 0, totalHeight],
+    radius: 3 + thickness + extra,
+    resolution: resolution,
+  }).subtract(shaft.translate([0, 0, baseHeight]));
 }
  
-function main(args) {
-  debug("Calling main() with args " + JSON.stringify(args));
+function main(params) {
+  debug("Calling main() with params " + JSON.stringify(params));
+  
+  params = paramsWithDefaults(params, {
+    nNotches: 13,
+    flattenedShaftLength: 5,
+    baseHeight: 2,
+    gripperThickness: 0.5,
+    resolution: 60,
+    extra: 0.1,
+  });
+  
+  debug("main() params with defaults are " + JSON.stringify(params));
+  
+  let flatShaftLength = params.flattenedShaftLength;
+  let baseHeight = params.baseHeight;
+  let gripperThckness = params.gripperThickness;
+  let totalHeight = baseHeight + flatShaftLength + 3;
+  let extra = params.extra;
+  let resolution = params.resolution;
+  let nNotches = params.nNotches;
 
-  return outside().subtract(inside());
+  return union([
+    gripper({
+      baseHeight: baseHeight,
+      flatShaftLength: flatShaftLength,
+      totalHeigh: totalHeight,
+      thickness: gripperThckness,
+      extra: extra,
+      resolution: resolution,
+    }),
+    shell({
+      h: 10, 
+      r1: 8, 
+      r2: 6, 
+      nNotches: nNotches, 
+      d: 1.5,
+      resolution: resolution,
+    }),
+  ]);
 }
