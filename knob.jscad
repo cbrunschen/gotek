@@ -64,6 +64,56 @@ function getParameterDefinitions() {
       max:29, 
       caption: "Notches:"
     },
+
+    {
+      name: 'notchDepth',
+      type: 'float', 
+      initial: 0.1, 
+      min: 0.0, 
+      max: 1.0, 
+      step: 0.05,
+      caption: "Notch depth (fraction):"
+    },
+    
+    { 
+      name: 'bottomRadius', 
+      type: 'float', 
+      initial: 8.5, 
+      min: 5.0, 
+      max: 15.0, 
+      step: 0.05, 
+      caption: "Bottom radius (mm):"
+    },
+    
+    { 
+      name: 'topRadius', 
+      type: 'float', 
+      initial: 6.5, 
+      min: 5.0, 
+      max: 15.0, 
+      step: 0.05, 
+      caption: "Top radius (mm):"
+    },
+
+    { 
+      name: 'wallThickness', 
+      type: 'float', 
+      initial: 2.0, 
+      min: 0., 
+      max: 15.0, 
+      step: 0.05, 
+      caption: "Wall thickness (mm):"
+    },
+
+    { 
+      name: 'ceilingThickness', 
+      type: 'float', 
+      initial: 2.0, 
+      min: 0., 
+      max: 15.0, 
+      step: 0.05, 
+      caption: "Ceiling thickness (mm):"
+    },
     
     { 
       name: 'flattenedShaftLength', 
@@ -83,6 +133,16 @@ function getParameterDefinitions() {
       max: 15.0, 
       step :0.05, 
       caption: "Base height (mm):"
+    },
+
+    { 
+      name: 'gripperThickness', 
+      type: 'float', 
+      initial: 0.5, 
+      min: 0.1, 
+      max: 3.0, 
+      step: 0.05, 
+      caption: "Gripper thickness (mm):"
     },
     
     {
@@ -161,6 +221,7 @@ Old shape:
 */
 
 function notchedOutline(params) {
+  debug("notchedOutline(" + JSON.stringify(params) + ")")
   params = paramsWithDefaults(params, {
     nNotches: 13,
     notchDepth: 0.05,
@@ -215,17 +276,18 @@ function notchedOutline(params) {
 }
 
 function notchedCone(params) {
+  debug("notchedCone(" + JSON.stringify(params) + ")")
   params = paramsWithDefaults(params, {
-    h:10, 
-    r1:8, 
-    r2:6, 
+    height:10, 
+    bottomRadius:8, 
+    topRadius:6, 
     nNotches:13,
     notchDepth:0.1,
     resolution:60,
   });
-  let r1 = params.r1;
-  let r2 = params.r2;
-  let h = params.h;
+  let r1 = params.bottomRadius;
+  let r2 = params.topRadius;
+  let h = params.height;
   
   let outline = notchedOutline(params);
   let dr = r2 - r1;
@@ -245,50 +307,57 @@ function notchedCone(params) {
 }
 
 function shell(params) {
+  debug("shell(" + JSON.stringify(params) + ")")
   params = paramsWithDefaults(params, {
-    h:10, 
-    r1:8.5, 
-    r2:6.5, 
+    height:10, 
+    bottomRadius:8.5, 
+    topRadius:6.5, 
     nNotches:13, 
-    d:2,
+    notchDepth:0.1,
+    wallThickness:2,
+    ceilingThickness:1,
     resolution:60,
   });
-  let h = params.h;
-  let r1 = params.r1;
-  let r2 = params.r2;
+  let h = params.height;
+  let r1 = params.bottomRadius;
+  let r2 = params.topRadius;
   let nNotches = params.nNotches;
-  let d = params.d;
+  let notchDepth = params.notchDepth;
+  let d = params.wallThickness;
+  let e = params.ceilingThickness;
   let resolution = params.resolution;
   
   return notchedCone({
-    h:h,
-    r1:r1,
-    r2:r2,
+    height:h,
+    bottomRadius:r1,
+    topRadius:r2,
     nNotches:nNotches,
+    notchDepth:notchDepth,
     resolution:resolution,
   }).subtract(
     CSG.cylinder({
       start:[0,0,0],
-      end:[0,0,h-d],
-      radiusStart:r1-d,
-      radiusEnd:r2-d,
+      end:[0,0,h - e],
+      radiusStart:r1 - d,
+      radiusEnd:r2 - d,
       resolution:resolution,
     })
   )
 }
 
 function gripper(params) {
+  debug("gripper(" + JSON.stringify(params) + ")")
   params = paramsWithDefaults(params, {
     baseHeight: 2,
     flatShaftLength: 5,
-    totalHeight: 10,
+    height: 10,
     thickness: 0.5,
     extra: 0.1,
     resolution: 60,
   });
   let baseHeight = params.baseHeight;
   let flatShaftLength = params.flatShaftLength;
-  let totalHeight = params.totalHeight;
+  let height = params.height;
   let thickness = params.thickness;
   let extra = params.extra;
   let resolution = params.resolution;
@@ -299,7 +368,7 @@ function gripper(params) {
   });
   return CSG.cylinder({
     start: [0, 0, baseHeight],
-    end: [0, 0, totalHeight],
+    end: [0, 0, height],
     radius: 3 + thickness + extra,
     resolution: resolution,
   }).subtract(shaft.translate([0, 0, baseHeight]));
@@ -310,6 +379,12 @@ function main(params) {
   
   params = paramsWithDefaults(params, {
     nNotches: 13,
+    notchDepth: 0.1,
+    height: 10,
+    bottomRadius: 8.5,
+    topRadius:6.5,
+    wallThickness: 2,
+    ceilingThickness: 1,
     flattenedShaftLength: 5,
     baseHeight: 2,
     gripperThickness: 0.5,
@@ -321,27 +396,34 @@ function main(params) {
   
   let flatShaftLength = params.flattenedShaftLength;
   let baseHeight = params.baseHeight;
-  let gripperThckness = params.gripperThickness;
-  let totalHeight = baseHeight + flatShaftLength + 3;
+  let wallThickness = params.wallThickness;
+  let ceilingThickness = params.ceilingThickness;
+  let gripperThickness = params.gripperThickness;
+  let bottomRadius = params.bottomRadius;
+  let topRadius = params.topRadius;
+  let height = baseHeight + flatShaftLength + ceilingThickness;
   let extra = params.extra;
   let resolution = params.resolution;
   let nNotches = params.nNotches;
+  let notchDepth = params.notchDepth;
 
   return union([
     gripper({
       baseHeight: baseHeight,
       flatShaftLength: flatShaftLength,
-      totalHeigh: totalHeight,
-      thickness: gripperThckness,
+      height: height,
+      thickness: gripperThickness,
       extra: extra,
       resolution: resolution,
     }),
     shell({
-      h: 10, 
-      r1: 8, 
-      r2: 6, 
+      height: height, 
+      bottomRadius: bottomRadius, 
+      topRadius: topRadius, 
       nNotches: nNotches, 
-      d: 1.5,
+      notchDepth: notchDepth,
+      wallThickness: wallThickness,
+      ceilingThickness: ceilingThickness,
       resolution: resolution,
     }),
   ]);
